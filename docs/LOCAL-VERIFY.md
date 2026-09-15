@@ -110,6 +110,8 @@ npm run tauri build
 
 ## 6. 开发环境已验证项（Linux x64）
 
+> **Linux 运行要求**：需要 webkit2gtk-4.1 ≥ 2.40（Ubuntu 24.04+ 自带 2.44/2.48 ✓；Ubuntu 22.04 自带 2.36 不满足，需 `apt install --upgrade libwebkit2gtk-4.1-0` 或升级系统）。Windows/macOS 无此限制。
+
 以下内容已在当前开发环境真实跑通，**不需要你重复验证**：
 
 - [x] `verify-env.mjs` 环境自检（11 项：工具链/工程入口/许可证/引擎 + Linux Tauri 运行时库检测）
@@ -121,6 +123,7 @@ npm run tauri build
 - [x] **前后端字段命名对齐（重要修复）**：真机运行发现状态栏恒「FFmpeg 未就绪」——根因是 Rust 侧 `#[serde(rename_all="camelCase")]` 输出 `ffmpegOk`，前端读 `ffmpeg_ok` 为 undefined。已全前端字段系统性对齐（EngineInfo/AppSettings/QueueItem/ProgressEvent/CompressItem/EditOptions），`npm run build` 通过。
 - [x] **前端全流程 UI 验证（11/11）**：`scripts/ui-e2e-check.py` 用官方 Tauri mocks + Playwright 在浏览器验证——引擎状态/预设渲染/拖放入队/对比面板/压缩调用与进度流转/设置 camelCase 保存/检查更新，全部通过且无 JS 错误。
 - [x] **Release 真实运行验证**：webkit2gtk-4.1 2.50.4 运行时恢复后，`target/release/tinypress` 真机运行截图确认：状态栏 `FFmpeg 4.4.2-0ubuntu0.22.04.1 · 图片引擎 3/4 就绪 · NVENC可用`（引擎 3/4 因沙箱缺 cjpeg；产品无碍）、全部 13 个预设渲染、队列/设置面板正常。
+- [x] **引擎定位跨形态修复**：`find()` 增加 deb 安装态 `/usr/lib/TinyPress/bins` 与 macOS `Contents/Resources/bins` 候选路径（此前只查 exe 旁 bins + PATH，deb 安装后引擎会找不到）；重新编译 + deb 重打包验证 6 引擎内嵌。
 - [x] **deb 安装包**：`src-tauri/target/release/bundle/deb/TinyPress_0.1.0_amd64.deb`（含全部修复，3.27MB）
 
 ## 7. 仍需你在本机验证的点（有 GPU 的 Windows/Mac）
