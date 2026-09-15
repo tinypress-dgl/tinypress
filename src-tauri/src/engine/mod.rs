@@ -164,14 +164,23 @@ fn bin_name(name: &str) -> String {
 
 impl BinaryLocator {
     pub fn find(&self, name: &str) -> Option<PathBuf> {
+        // 与 tauri.conf.json 的 productName 保持一致（Linux deb 资源目录名）
+        const PRODUCT_DIR: &str = "TinyPress";
         if let Ok(exe) = std::env::current_exe() {
             if let Some(dir) = exe.parent() {
                 for cand in [
-                    dir.join("bins").join(bin_name(name)),
-                    dir.join(bin_name(name)),
+                    dir.join("bins").join(bin_name(name)),                    // 开发态/Windows 安装态
+                    dir.join(bin_name(name)),                                 // 同目录
+                    Path::new("/usr/lib").join(PRODUCT_DIR).join("bins").join(bin_name(name)), // Linux deb
                 ] {
                     if cand.is_file() {
                         return Some(cand);
+                    }
+                }
+                if let Some(parent) = dir.parent() {
+                    let mac = parent.join("Resources").join("bins").join(bin_name(name));
+                    if mac.is_file() {
+                        return Some(mac);
                     }
                 }
             }
