@@ -1,0 +1,250 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-09-15",
+  "presets": [
+    {
+      "id": "bilibili-1080p",
+      "name": "B站 1080P（免二压）",
+      "platform": "bilibili",
+      "kind": "video",
+      "tags": ["hot", "creator"],
+      "constraints": {
+        "max_bitrate_kbps": 3000,
+        "max_resolution": "1920x1080"
+      },
+      "video": {
+        "codec": "libx264",
+        "crf": 23.5,
+        "preset": "slow",
+        "level": "4.1",
+        "keyint": 590,
+        "pix_fmt": "yuv420p",
+        "audio": { "codec": "aac", "bitrate_kbps": 192 }
+      },
+      "filters": { "scale": "1920:-2", "max_fps": 60 },
+      "note": "小丸社区免二压参数：--crf 23.5 --preset 8 --level 41 -I 590（VMAF 92.1）；配合 -maxrate 3000k 硬限码率，确保不触发平台二压。"
+    },
+    {
+      "id": "douyin-vertical",
+      "name": "抖音 竖屏 1080x1920",
+      "platform": "douyin",
+      "kind": "video",
+      "tags": ["creator"],
+      "constraints": {
+        "max_bitrate_kbps": 9000,
+        "max_resolution": "1080x1920"
+      },
+      "video": {
+        "codec": "libx264",
+        "crf": 26,
+        "preset": "medium",
+        "pix_fmt": "yuv420p",
+        "audio": { "codec": "aac", "bitrate_kbps": 128 }
+      },
+      "filters": { "scale": "-2:1920" },
+      "note": "实测参考：1080P/30fps 推荐 3500–9000kbps，超 15–20Mbps 会被明显二压；体积建议 ≤200MB（社区公开数据）。"
+    },
+    {
+      "id": "shipinhao-horizontal",
+      "name": "微信视频号 横屏 1080P",
+      "platform": "shipinhao",
+      "kind": "video",
+      "tags": ["creator"],
+      "constraints": {
+        "max_bitrate_kbps": 8000,
+        "max_resolution": "1920x1080"
+      },
+      "video": {
+        "codec": "libx265",
+        "crf": 26,
+        "preset": "medium",
+        "pix_fmt": "yuv420p",
+        "audio": { "codec": "aac", "bitrate_kbps": 160 }
+      },
+      "filters": { "scale": "1920:-2" },
+      "note": "视频号官方建议：1080P、H.264、3–10Mbps；单文件 ≤1GB、时长 ≤30 分钟。本预设 H.265 兼顾体积与画质。"
+    },
+    {
+      "id": "shipinhao-vertical",
+      "name": "微信视频号 竖屏 1080x1920",
+      "platform": "shipinhao",
+      "kind": "video",
+      "tags": ["creator"],
+      "constraints": {
+        "max_bitrate_kbps": 8000,
+        "max_resolution": "1080x1920"
+      },
+      "video": {
+        "codec": "libx264",
+        "crf": 26,
+        "preset": "medium",
+        "pix_fmt": "yuv420p",
+        "audio": { "codec": "aac", "bitrate_kbps": 128 }
+      },
+      "filters": { "scale": "-2:1920" },
+      "note": "竖屏 9:16、1080x1920、30fps、H.264；码率 5–10Mbps 为社区推荐区间，限 8Mbps 平衡体积与画质。"
+    },
+    {
+      "id": "xhs-vertical",
+      "name": "小红书 竖屏视频 1080x1920",
+      "platform": "xiaohongshu",
+      "kind": "video",
+      "tags": ["creator"],
+      "constraints": {
+        "max_bitrate_kbps": 8000,
+        "max_resolution": "1080x1920"
+      },
+      "video": {
+        "codec": "libx264",
+        "crf": 26,
+        "preset": "medium",
+        "pix_fmt": "yuv420p",
+        "audio": { "codec": "aac", "bitrate_kbps": 128 }
+      },
+      "filters": { "scale": "-2:1920" },
+      "note": "小红书支持 MP4/MOV，推荐 720P+，超过 1080P 建议网页端上传；App 上传常见上限 ≤500MB。"
+    },
+    {
+      "id": "xhs-cover-3-4",
+      "name": "小红书封面图 3:4（≤2MB）",
+      "platform": "xiaohongshu",
+      "kind": "image",
+      "tags": ["creator"],
+      "constraints": { "max_size_kb": 2048, "min_resolution": "1080x1440" },
+      "image": {
+        "format": "jpeg",
+        "engine": "mozjpeg",
+        "quality": 82,
+        "max_size_kb": 2048,
+        "strip_metadata": true
+      },
+      "note": "小红书常用 3:4 竖图（观感最佳）；官方硬上限约 20MB，本预设压到 2MB 以内兼顾清晰度与加载速度。"
+    },
+    {
+      "id": "taobao-main",
+      "name": "淘宝主图 800x800（≤500KB）",
+      "platform": "taobao",
+      "kind": "image",
+      "tags": ["ecommerce"],
+      "constraints": { "max_size_kb": 500, "min_resolution": "800x800" },
+      "image": {
+        "format": "jpeg",
+        "engine": "mozjpeg",
+        "quality": 80,
+        "max_size_kb": 500,
+        "strip_metadata": true
+      },
+      "note": "淘宝主图 1:1、最低 800x800（推荐 1000x1000+）；硬上限 3MB，超 500KB 手机端上传慢，按 500KB 优化。"
+    },
+    {
+      "id": "taobao-white",
+      "name": "淘宝白底图（≤300KB）",
+      "platform": "taobao",
+      "kind": "image",
+      "tags": ["ecommerce"],
+      "constraints": { "max_size_kb": 300 },
+      "image": {
+        "format": "jpeg",
+        "engine": "mozjpeg",
+        "quality": 80,
+        "max_size_kb": 300,
+        "strip_metadata": true
+      },
+      "note": "第五张白底图规范 38–300KB、纯白背景、无文字/LOGO；推荐渠道必须。"
+    },
+    {
+      "id": "youtube-1080p",
+      "name": "YouTube 1080P（8Mbps）",
+      "platform": "youtube",
+      "kind": "video",
+      "tags": ["creator", "global"],
+      "constraints": {
+        "max_bitrate_kbps": 8000,
+        "max_resolution": "1920x1080"
+      },
+      "video": {
+        "codec": "libx264",
+        "crf": 23,
+        "preset": "medium",
+        "level": "4.0",
+        "keyint": 250,
+        "pix_fmt": "yuv420p",
+        "audio": { "codec": "aac", "bitrate_kbps": 192 }
+      },
+      "filters": { "scale": "1920:-2" },
+      "note": "YouTube 官方推荐：1080p SDR 8Mbps（30fps）/ 12Mbps（60fps），H.264 + AAC 192kbps。"
+    },
+    {
+      "id": "tiktok-vertical",
+      "name": "TikTok 竖屏 1080x1920",
+      "platform": "tiktok",
+      "kind": "video",
+      "tags": ["creator", "global"],
+      "constraints": {
+        "max_bitrate_kbps": 4000,
+        "max_resolution": "1080x1920"
+      },
+      "video": {
+        "codec": "libx264",
+        "crf": 27,
+        "preset": "medium",
+        "pix_fmt": "yuv420p",
+        "audio": { "codec": "aac", "bitrate_kbps": 128 }
+      },
+      "filters": { "scale": "-2:1920" },
+      "note": "TikTok 9:16 1080x1920 H.264 30fps；Android 上传 ≤72MB / iOS ≤287MB，平台会二次转码，4Mbps 限码保证 3 分钟视频约 90MB 以内。"
+    },
+    {
+      "id": "wechat-moments",
+      "name": "微信朋友圈视频（≤25MB）",
+      "platform": "wechat",
+      "kind": "video",
+      "tags": ["daily"],
+      "constraints": {
+        "max_size_kb": 26214,
+        "max_resolution": "1920x1080"
+      },
+      "video": {
+        "codec": "libx264",
+        "crf": 26,
+        "preset": "medium",
+        "pix_fmt": "yuv420p",
+        "audio": { "codec": "aac", "bitrate_kbps": 128 }
+      },
+      "filters": { "scale": "1920:-2" },
+      "note": "朋友圈视频硬上限约 25MB（26214KB），超限压缩到目标大小内。"
+    },
+    {
+      "id": "pdd-main-image",
+      "name": "拼多多主图（≤100KB）",
+      "platform": "pinduoduo",
+      "kind": "image",
+      "tags": ["hot", "ecommerce"],
+      "constraints": { "max_size_kb": 100, "min_resolution": "480x480" },
+      "image": {
+        "format": "jpeg",
+        "engine": "mozjpeg",
+        "quality": 80,
+        "max_size_kb": 100,
+        "strip_metadata": true
+      },
+      "note": "拼多多主图硬上限 100KB；两段式压缩：先质量 80，超限则二分逼近。"
+    },
+    {
+      "id": "cert-photo",
+      "name": "证件照 / 照片（≤200KB）",
+      "platform": "generic",
+      "kind": "image",
+      "tags": ["daily"],
+      "constraints": { "max_size_kb": 200 },
+      "image": {
+        "format": "jpeg",
+        "engine": "mozjpeg",
+        "quality": 85,
+        "max_size_kb": 200,
+        "strip_metadata": true
+      },
+      "note": "常见报名/上传场景 200KB 限制。"
+    }
+  ]
+}

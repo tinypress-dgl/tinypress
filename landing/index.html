@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAGD0lEQVR42qVXS4wUVRQ971X1dM+nZ4afLUMEXTiGEBVZoInBuEGN0QV+FizQEE3UoIns3LkQF24IKzSaqAj4iRvREKMxLtSgEuMnZAK4MBo+gyPCzDCf7umu97yfV91V3TNtxEqqq7rqvnd/5557K/Z04CqPxOk1srjqo8tSH86llHtRzCffLy7ru9z7rAEe3icZIb12xoblHOrkemQNPjg+iXe/uyz3jeS/OGKad7EqShV6mPAur7z1x3mDQmTw6YkZ7Dp0UeTKpQgPbhwEB8IadImc7zDCLmalGsSn01+v+WYv2duDxy7j4f0XUO7rwVB/Dx7dP443v/5blDdIMHFO1ng5neyXPbPG2HaLUgFDoXDeylNL96w4jlRmptrA9s39cElCChNsv6OMal3XxQSKyEayhqMpe0hYvVyNMflkeDlcJgImKDfNcJ4cr1HeIRs2Gh6j1xZx4lwN9+8bp7cWnzx3DTatK+EUyXF6eKdCBKxfXZT9OCJaKUZO1qeGGMVAPgqeFhhZ8OuFKp46MI7TfzpRzm/nag7r15Tw8kPLURlkZQY1Mmrr3rMYO1tDf5EVqJejlRiv7qhg/UhJKsWaTkBmIqBhVyBa2tThrlfO4OS5Bawsx5JTNQ4Y6rXYt31lMNeL4bvfv4SpqkNMSlg2or0uzjrcVDH46oV1KBVMBltGdDQN0PLyIVxe8vj52CweIXBVBmMKv6pJS4PTI2G2umah4QUjEa1zTtPJGCjQ/4krdXz4TAVbN5TR4FQECORS0LIMSOtwZj6hWy/5E2vptWNQNVhBQsoID/zAMzjpuUtQbxj2DdYasVUJCrhS9S3gG+SAGGdrlBWZIBuRqVIDHE7ydHLe475b+rBn23JMzzl5lgLLkTYG6TCl5sUjl3Dkp1kM96kxrMzalsJUuaY6B0LNkW+WY55A6uTNyFCM61f0ACuWJnDGB+9jTRSimXTtBXG3XqDmeKp1g1Ls8f1vc9jz8QQm5zw2rCli55ZhkXz7m0mqgHnhiS/G5jBQsgFLEu8W7o0Sk0bCdjdAQsXwDJXRSyg+Pb6AX87UKAUeD2zsbxpw5Oc5fPTDNIb7DfqKEQGNKsFxp2pCqqMHtEUgE+9QDVobuoESE9BD0oMU4mJBr+lRLgErhwqCgYWE0UrAtSbgI5tOnwGgaY+AaVJm7n9YbUPIGPnMBS7jjXOcJjodFEPGyrMo8nmfpRdki82kvSBQCr9tolSbSMsDnwNrvrFlOF72QNMZmy07ccJ0DiQpKXT2fh86WuBw2UCBmU9bNsRqhJEuYfICWb5p74bNTtU2hRirIp5CYbxDmqQsmTBh+aCc71Ov+RkzY2tL1zHsxGm4F6kDCZkJbdXTRsJwSi8ENmBqviH3tboq1blBu6gJZCOdr+m1XaoKbCsswbO0+fCols4FDCymygGagH78vYbNL50RWWbBgaKVNeK3Uz8jawVmfqkyTw3QyPuQX33BZSbDCG/pyFMaMtI0sU8ztYY0I/7PzYj7PzcxIxWQiLEKLYNy0TaR3z6QxNkqkLIIzWDLaC8NHjENGQlW9FkZ9lI+GKC6f/2xVYi1R0n57X7vojQdfsZyhQJ1wukEN1Ys7dXXrIjWxGXzM6F6px4wjZbIpQNPrMbGtTFqVOM8H9TqC7gyXyfCgTDjs4cnsOvgBHpol2XUfKbmFlBdqNF41qDBpYFbryvgnSdHaC8rXXWxATUzDzit55ACJpvI6vg0dr4q/SB9Pkqj1tjZKu7Ze57RiaPPj+C2tb04daGmUfGQPrCBJieeCxJKiTV5Kk5LP29Apm7ZkMQ7AVLruUARr335F47/4fDZiVnx496b+3H7DUU8fffyDi/1AyZlQNMsz5QDbX4SzvTrMNXoYKGjdj1RI4uUnsPfTssE1EPTyKFjMyKrFZEEeXWKMcVEZkJJpyzqsynI80CWqUwuKkrDOmAc/WUKO96YoCkpwls7V2HbpnJAvm8p6tizawp8m+BSXzdGPj4KcSyfZcwBj9+5TKIT26zRfpGvofbGZxaLwL8drcE0CjTdCbJ2j/0iToW0/L/Pcx8+z81Vf5//A+q1SQbVf2kCAAAAAElFTkSuQmCC" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TinyPress 速压 - 图片视频压缩，选平台就够</title>
+<link rel="stylesheet" href="https://miaoda.feishu.cn/fonts/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" />
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --ink: #101828;
+    --ink-2: #475467;
+    --ink-3: #98a2b3;
+    --line: #e4e7ec;
+    --brand: #1d6df0;
+    --brand-deep: #1559cc;
+    --brand-soft: #eaf1fe;
+    --ok: #12b76a;
+    --card: #ffffff;
+    --radius: 14px;
+    --shadow: 0 1px 2px rgba(16,24,40,.05), 0 8px 24px rgba(16,24,40,.07);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+  /* ===== 顶部导航 ===== */
+  nav {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(246,247,249,.92);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 60px; }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; }
+  .logo-mark {
+    width: 28px; height: 28px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--brand), #4f9cff);
+    display: grid; place-items: center; color: #fff; font-weight: 900; font-size: 14px;
+  }
+  nav .cta {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--brand); color: #fff; border: none;
+    padding: 9px 18px; min-height: 44px; border-radius: 999px; font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: background .15s;
+  }
+  nav .cta:hover { background: var(--brand-deep); }
+
+  /* ===== Hero ===== */
+  header.hero { padding-block: 72px 56px; text-align: center; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--brand-soft); color: var(--brand-deep);
+    font-size: 13px; font-weight: 600; padding: 6px 14px; border-radius: 999px;
+    margin-bottom: 20px;
+  }
+  .eyebrow svg { width: 14px; height: 14px; }
+  h1 {
+    font-size: clamp(30px, 5vw, 48px);
+    font-weight: 900; letter-spacing: -.02em; line-height: 1.22;
+  }
+  h1 .accent { color: var(--brand); }
+  .sub { margin: 18px auto 0; max-width: 640px; font-size: 17px; color: var(--ink-2); }
+  .hero-actions { margin-top: 32px; display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 13px 26px; min-height: 44px; border-radius: 12px; font-size: 15px; font-weight: 700;
+    cursor: pointer; border: none; transition: all .15s; text-decoration: none;
+  }
+  .btn-primary { background: var(--brand); color: #fff; box-shadow: 0 4px 14px rgba(29,109,240,.3); }
+  .btn-primary:hover { background: var(--brand-deep); transform: translateY(-1px); }
+  .btn-ghost { background: #fff; color: var(--ink); border: 1px solid var(--line); }
+  .btn-ghost:hover { border-color: var(--brand); color: var(--brand-deep); }
+  .hero-note { margin-top: 14px; font-size: 14px; color: var(--ink-3); }
+
+  /* ===== 应用窗口 mockup ===== */
+  .mockup {
+    margin: 56px auto 0; max-width: 860px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 18px;
+    box-shadow: var(--shadow); overflow: hidden; text-align: left;
+  }
+  .mockup-bar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 16px; border-bottom: 1px solid var(--line); background: #fafbfc;
+  }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .dot.r { background: #f97066; } .dot.y { background: #fec84b; } .dot.g { background: #12b76a; }
+  .mockup-bar .title { margin-left: 10px; font-size: 13px; color: var(--ink-2); font-weight: 500; }
+  .mockup-body { display: flex; min-height: 320px; }
+  .mockup-side { width: 210px; border-right: 1px solid var(--line); padding: 14px 10px; background: #fcfcfd; }
+  .mockup-side .sec { font-size: 12px; color: var(--ink-3); padding: 6px 10px 4px; letter-spacing: .06em; }
+  .preset-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 10px; border-radius: 8px; font-size: 13px; margin-bottom: 4px;
+  }
+  .preset-item.active { background: var(--brand); color: #fff; font-weight: 600; }
+  .preset-item:not(.active) { color: var(--ink-2); }
+  .preset-tag { font-size: 12px; padding: 2px 7px; border-radius: 999px; background: rgba(0,0,0,.06); }
+  .preset-item.active .preset-tag { background: rgba(255,255,255,.22); }
+  .mockup-main { flex: 1; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+  .drop {
+    border: 2px dashed #c7d2e5; border-radius: 12px; padding: 26px 16px; text-align: center;
+    color: var(--ink-3); font-size: 13px; background: #fbfcfe;
+  }
+  .drop strong { display: block; font-size: 14px; color: var(--ink-2); margin-bottom: 2px; }
+  .queue-item {
+    display: flex; align-items: center; gap: 12px;
+    border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: #fff;
+  }
+  .queue-item .file { flex: 1; min-width: 0; }
+  .queue-item .file b { display: block; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .queue-item .file span { font-size: 12px; color: var(--ink-3); }
+  .bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; width: 120px; }
+  .bar i { display: block; height: 100%; background: var(--brand); border-radius: 3px; }
+  .size { font-size: 12px; font-weight: 700; color: var(--ok); white-space: nowrap; }
+
+  /* ===== 价值点 ===== */
+  section { padding: 64px 0; }
+  .sec-head { text-align: center; max-width: 620px; margin: 0 auto 40px; }
+  .sec-head h2 { font-size: 28px; font-weight: 900; letter-spacing: -.01em; }
+  .sec-head p { margin-top: 10px; color: var(--ink-2); font-size: 15px; }
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 24px; box-shadow: var(--shadow);
+  }
+  .card .ic {
+    width: 40px; height: 40px; border-radius: 10px; background: var(--brand-soft);
+    display: grid; place-items: center; margin-bottom: 14px; color: var(--brand-deep);
+  }
+  .card h3 { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+  .card p { font-size: 14px; color: var(--ink-2); }
+
+  /* ===== 预设矩阵 ===== */
+  .preset-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .pcell {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 18px; display: flex; align-items: center; gap: 14px;
+  }
+  .pcell .pf { font-size: 22px; font-weight: 900; color: var(--brand); }
+  .pcell b { display: block; font-size: 14px; font-weight: 700; }
+  .pcell span { font-size: 12px; color: var(--ink-3); }
+  .pcell .rule { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--ok); background: #e8f9f0; padding: 4px 9px; border-radius: 999px; white-space: nowrap; }
+
+  /* ===== 定价 ===== */
+  .price-grid { display: grid; grid-template-columns: 1.05fr 1fr; gap: 18px; max-width: 780px; margin: 0 auto; }
+  .price {
+    background: var(--card); border-radius: 16px; padding: 30px; box-shadow: var(--shadow);
+    border: 1px solid var(--line); position: relative;
+  }
+  .price.feature { border: 2px solid var(--brand); }
+  .price .tag {
+    position: absolute; top: -12px; left: 28px; background: var(--brand); color: #fff;
+    font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 999px;
+  }
+  .price .name { font-size: 15px; font-weight: 700; color: var(--ink-2); }
+  .price .amount { margin: 10px 0 4px; font-size: 34px; font-weight: 900; }
+  .price .amount small { font-size: 14px; font-weight: 500; color: var(--ink-3); }
+  .price ul { list-style: none; margin: 18px 0 22px; }
+  .price li { font-size: 14px; color: var(--ink-2); padding: 7px 0 7px 26px; position: relative; }
+  .price li::before {
+    content: ""; position: absolute; left: 4px; top: 14px; width: 12px; height: 12px;
+    border-radius: 50%; background: var(--ok); opacity: .85;
+  }
+  .price .btn { width: 100%; }
+  .price .strike { text-decoration: line-through; color: var(--ink-3); font-weight: 400; }
+  .compare-note { text-align: center; font-size: 13px; color: var(--ink-3); margin-top: 18px; }
+
+  /* ===== 内测表单 ===== */
+  #signup { background: #fff; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 0 24px; }
+  form { max-width: 560px; margin: 0 auto; }
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 7px; }
+  .field input, .field select {
+    width: 100%; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px;
+    font-size: 14px; font-family: inherit; background: #fbfcfe; color: var(--ink);
+  }
+  .field input:focus, .field select:focus { outline: 2px solid var(--brand); border-color: transparent; }
+  .field .hint { font-size: 12px; color: var(--ink-3); margin-top: 5px; }
+  form .btn { width: 100%; margin-top: 8px; }
+  .toast {
+    position: fixed; left: 50%; bottom: 32px; transform: translateX(-50%) translateY(80px);
+    background: var(--ink); color: #fff; padding: 12px 22px; border-radius: 10px;
+    font-size: 14px; opacity: 0; transition: all .3s; pointer-events: none; z-index: 99;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  footer { padding: 36px 0 48px; text-align: center; font-size: 13px; color: var(--ink-3); }
+  footer a { color: var(--brand); text-decoration: none; }
+
+  /* ===== 响应式 ===== */
+  @media (max-width: 860px) {
+    .cards { grid-template-columns: 1fr; }
+    .preset-grid { grid-template-columns: 1fr 1fr; }
+    .price-grid { grid-template-columns: 1fr; }
+    .mockup-side { display: none; }
+    .mockup-body { min-height: 0; }
+    header.hero { padding-block: 48px 40px; }
+    section { padding: 48px 0; }
+  }
+  @media (max-width: 520px) {
+    .preset-grid { grid-template-columns: 1fr; }
+    .bar { width: 72px; }
+    .field input, .field select { font-size: 16px; }
+    /* 移动端辅助文字放大，保证可读性 */
+    .eyebrow { font-size: 14px; }
+    .drop { font-size: 14px; }
+    .drop strong { font-size: 15px; }
+    .preset-item { font-size: 14px; }
+    .preset-tag { font-size: 13px; }
+    .size { font-size: 13px; }
+    .mockup-bar .title { font-size: 14px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== 顶部导航 ===== -->
+<nav>
+  <div class="wrap">
+    <div class="logo"><span class="logo-mark">T</span>TinyPress <span style="color:var(--ink-3);font-weight:500">速压</span></div>
+    <button class="cta" onclick="document.getElementById('signup').scrollIntoView({behavior:'smooth'})">申请内测</button>
+  </div>
+</nav>
+
+<!-- ===== Hero ===== -->
+<header class="hero wrap">
+  <div class="eyebrow">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+    图片 + 视频二合一 · 100% 本地处理
+  </div>
+  <h1>选平台，拖进去，<span class="accent">完事</span></h1>
+  <p class="sub">不用查参数、不用懂码率。TinyPress 内置各平台的压缩硬约束，一键把图片和视频压到合规大小，画质损失降到最低。</p>
+  <div class="hero-actions">
+    <button class="btn btn-primary" onclick="document.getElementById('signup').scrollIntoView({behavior:'smooth'})">申请内测（限 50 名）</button>
+    <button class="btn btn-ghost" onclick="document.getElementById('presets').scrollIntoView({behavior:'smooth'})">看场景预设</button>
+  </div>
+  <p class="hero-note">全程本地压缩，文件不出你的电脑 · 无需账号 · 可离线使用</p>
+
+  <!-- 应用界面示意 -->
+  <div class="mockup" aria-label="产品界面示意">
+    <div class="mockup-bar">
+      <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+      <span class="title">TinyPress 速压</span>
+    </div>
+    <div class="mockup-body">
+      <div class="mockup-side">
+        <div class="sec">视频预设</div>
+        <div class="preset-item active">B站 1080P（免二压）<span class="preset-tag">B站</span></div>
+        <div class="preset-item">抖音 竖屏<span class="preset-tag">抖音</span></div>
+        <div class="preset-item">视频号 横屏<span class="preset-tag">视频号</span></div>
+        <div class="preset-item">朋友圈（≤25MB）<span class="preset-tag">微信</span></div>
+        <div class="sec">图片预设</div>
+        <div class="preset-item">拼多多主图<span class="preset-tag">≤100KB</span></div>
+        <div class="preset-item">证件照 / 报名照<span class="preset-tag">≤200KB</span></div>
+      </div>
+      <div class="mockup-main">
+        <div class="drop"><strong>拖入图片或视频文件</strong>支持批量 · 图片视频混合</div>
+        <div class="queue-item">
+          <div class="file"><b>product-demo.mp4</b><span>B站 1080P 免二压</span></div>
+          <div class="bar"><i style="width:100%"></i></div>
+          <span class="size">48.2MB → 6.8MB</span>
+        </div>
+        <div class="queue-item">
+          <div class="file"><b>main-image.png</b><span>拼多多主图（≤100KB）</span></div>
+          <div class="bar"><i style="width:72%"></i></div>
+          <span class="size">压缩中…</span>
+        </div>
+        <div class="queue-item">
+          <div class="file"><b>album-photo.jpg</b><span>证件照 / 报名照</span></div>
+          <div class="bar"><i style="width:100%"></i></div>
+          <span class="size">1.4MB → 128KB</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ===== 价值点 ===== -->
+<section class="wrap">
+  <div class="sec-head">
+    <h2>为什么需要一个「懂平台」的压缩工具</h2>
+    <p>免费工具只能压缩，不能保证结果符合平台要求。TinyPress 把「平台规则」内置成预设，替你踩过所有坑。</p>
+  </div>
+  <div class="cards">
+    <div class="card">
+      <div class="ic">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2zm2 6h10M7 13h6"/></svg>
+      </div>
+      <h3>场景预设，参数正确</h3>
+      <p>内置 B 站免二压、拼多多主图、微信朋友圈等平台的硬约束参数，选了就能用，不靠运气。</p>
+    </div>
+    <div class="card">
+      <div class="ic">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+      </div>
+      <h3>图片视频，一起压</h3>
+      <p>批量拖入混合文件，队列并行处理。图片用感知压缩引擎，视频用 FFmpeg + 高质量编码参数。</p>
+    </div>
+    <div class="card">
+      <div class="ic">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
+      </div>
+      <h3>100% 本地，隐私安全</h3>
+      <p>压缩在你的电脑上完成，文件不上传、不经过任何服务器，断网也能用，敏感素材放心处理。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 预设矩阵 ===== -->
+<section class="wrap" id="presets">
+  <div class="sec-head">
+    <h2>平台硬约束，已内置</h2>
+    <p>预设参数随平台规则更新，改规则不用重装软件。</p>
+  </div>
+  <div class="preset-grid">
+    <div class="pcell"><span class="pf">B</span><div><b>B站 1080P 免二压</b><span>视频 · 免二次压缩参数</span></div><span class="rule">≤3000kbps</span></div>
+    <div class="pcell"><span class="pf">抖</span><div><b>抖音 竖屏</b><span>视频 · 1080×1920</span></div><span class="rule">竖屏优化</span></div>
+    <div class="pcell"><span class="pf">视</span><div><b>微信视频号</b><span>视频 · H.265 省体积</span></div><span class="rule">体积优先</span></div>
+    <div class="pcell"><span class="pf">朋</span><div><b>微信朋友圈</b><span>视频 · 分享不超限</span></div><span class="rule">≤25MB</span></div>
+    <div class="pcell"><span class="pf">拼</span><div><b>拼多多主图</b><span>图片 · 感知压缩不糊图</span></div><span class="rule">≤100KB</span></div>
+    <div class="pcell"><span class="pf">证</span><div><b>证件照 / 报名照</b><span>图片 · 上传无忧</span></div><span class="rule">≤200KB</span></div>
+  </div>
+</section>
+
+<!-- ===== 定价 ===== -->
+<section class="wrap">
+  <div class="sec-head">
+    <h2>买断制，一次付费</h2>
+    <p>不搞订阅陷阱，不搞 AI 积分墙。买断即拥有，大版本升级免费。</p>
+  </div>
+  <div class="price-grid">
+    <div class="price feature">
+      <span class="tag">推荐</span>
+      <div class="name">TinyPress 终身版</div>
+      <div class="amount">¥199 <small>一次买断</small></div>
+      <ul>
+        <li>图片 + 视频全部压缩功能</li>
+        <li>全部平台预设 + 后续新预设</li>
+        <li>批量处理与文件夹监控</li>
+        <li>大版本升级永久免费</li>
+        <li>首发价 ¥99（内测期间预订）</li>
+      </ul>
+      <button class="btn btn-primary" onclick="document.getElementById('signup').scrollIntoView({behavior:'smooth'})">申请内测名额</button>
+    </div>
+    <div class="price">
+      <div class="name">对比：同类商业软件</div>
+      <div class="amount">¥279 <small>买断</small></div>
+      <ul>
+        <li>视频转换为主，图片仅格式转换</li>
+        <li>预设多为历史机型，平台预设少</li>
+        <li class="strike">大版本升级需要再次付费</li>
+        <li class="strike">免费版有功能墙与广告</li>
+        <li class="strike">在线处理，素材需上传</li>
+      </ul>
+      <button class="btn btn-ghost" onclick="toast('演示：对标产品信息来自公开调研，仅供对比参考')">查看调研依据</button>
+    </div>
+  </div>
+  <p class="compare-note">* 定价与功能对比基于 2026 年 9 月对标产品公开信息，正式发布前可能微调。</p>
+</section>
+
+<!-- ===== 内测表单 ===== -->
+<section id="signup">
+  <div class="sec-head" style="padding-top:8px">
+    <h2>首批内测 · 限 50 名</h2>
+    <p>内测用户免费使用完整功能，你的反馈将直接决定产品功能优先级。</p>
+  </div>
+  <form id="signupForm" onsubmit="return submitForm(event)">
+    <div class="field">
+      <label for="name">怎么称呼你</label>
+      <input id="name" type="text" placeholder="昵称或姓名" required />
+    </div>
+    <div class="field">
+      <label for="platform">你主要在哪个平台发内容</label>
+      <select id="platform">
+        <option>B站</option><option>抖音</option><option>微信视频号</option>
+        <option>小红书</option><option>拼多多 / 淘宝</option><option>其他</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="filetype">最常需要压缩的文件</label>
+      <select id="filetype">
+        <option>视频为主</option><option>图片为主</option><option>图片和视频都有</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="contact">联系方式（邮箱或微信）</label>
+      <input id="contact" type="text" placeholder="用于发放内测资格" required />
+      <div class="hint">内测码将通过该联系方式发放，仅用于本次内测通知。</div>
+    </div>
+    <button class="btn btn-primary" type="submit">提交，申请内测</button>
+  </form>
+</section>
+
+<footer class="wrap">
+  <p>TinyPress 速压 · 本地优先的图片视频压缩工具 · 参数来源：社区公开数据与平台官方规则</p>
+  <p style="margin-top:6px">问题或合作：<a href="mailto:hello@tinypress.app">hello@tinypress.app</a></p>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ===== 内测表单收集配置 =====
+  // 正式内测前，把下面 FORM_ENDPOINT 换成你的收集服务地址：
+  //   1. 飞书问卷：创建问卷后复制「提交页 URL」，表单直接改为跳转（见下方说明）
+  //   2. Formspree：https://formspree.io/f/你的表单ID （POST JSON 即可）
+  //   3. 金数据/腾讯问卷 Webhook 或你自己的后端接口（接收 JSON：{name,platform,filetype,contact}）
+  // 留空（""）时提交数据保存在本机 localStorage，内测期可直接查看（F12 → Application）。
+  const FORM_ENDPOINT = "";
+
+  function submitForm(e) {
+    e.preventDefault();
+    const data = {
+      name: document.getElementById("name").value.trim(),
+      platform: document.getElementById("platform").value,
+      filetype: document.getElementById("filetype").value,
+      contact: document.getElementById("contact").value.trim(),
+      at: new Date().toISOString(),
+    };
+    if (!data.name || !data.contact) {
+      toast("请填写昵称和联系方式");
+      return false;
+    }
+
+    saveLocal(data);
+
+    if (FORM_ENDPOINT) {
+      fetch(FORM_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          toast("已提交！内测开放后第一时间通知你");
+        })
+        .catch((err) => {
+          console.error("表单服务提交失败，已保存在本地：", err);
+          toast("提交失败，数据已保存在本地，可稍后重试");
+        });
+    } else {
+      toast("已记录！内测开放后第一时间通知你");
+    }
+    e.target.reset();
+    return false;
+  }
+
+  // 本地暂存（兜底 + 调试查看）
+  function saveLocal(data) {
+    try {
+      const key = "tinypress_waitlist";
+      const list = JSON.parse(localStorage.getItem(key) || "[]");
+      list.push(data);
+      localStorage.setItem(key, JSON.stringify(list));
+    } catch (err) { /* 存储失败不阻塞 */ }
+  }
+
+  let toastTimer = null;
+  function toast(msg) {
+    const el = document.getElementById("toast");
+    el.textContent = msg;
+    el.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove("show"), 2800);
+  }
+</script>
+</body>
+</html>

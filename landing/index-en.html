@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="icon" type="image/png" href="data:image/png;base64,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" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="description" content="TinyPress — compress images and videos for your platform. One-click presets for YouTube, TikTok, Instagram, X and more. 100% on-device, files never leave your computer." />
+<title>TinyPress — Compress images & video for the platform you publish to</title>
+<link rel="stylesheet" href="https://miaoda.feishu.cn/fonts/css2?family=Manrope:wght@400;500;600;700;800&display=swap" />
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --ink: #101828;
+    --ink-2: #475467;
+    --ink-3: #98a2b3;
+    --line: #e4e7ec;
+    --brand: #1d6df0;
+    --brand-deep: #1559cc;
+    --brand-soft: #eaf1fe;
+    --ok: #12b76a;
+    --card: #ffffff;
+    --radius: 14px;
+    --shadow: 0 1px 2px rgba(16,24,40,.05), 0 8px 24px rgba(16,24,40,.07);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: "Manrope", "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+  /* ===== Nav ===== */
+  nav {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(246,247,249,.92);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 60px; }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 17px; }
+  .logo-mark {
+    width: 28px; height: 28px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--brand), #4f9cff);
+    display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 14px;
+  }
+  nav .cta {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--brand); color: #fff; border: none;
+    padding: 9px 18px; min-height: 44px; border-radius: 999px; font-size: 14px; font-weight: 700;
+    cursor: pointer; transition: background .15s;
+  }
+  nav .cta:hover { background: var(--brand-deep); }
+
+  /* ===== Hero ===== */
+  header.hero { padding-block: 72px 56px; text-align: center; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--brand-soft); color: var(--brand-deep);
+    font-size: 13px; font-weight: 700; padding: 6px 14px; border-radius: 999px;
+    margin-bottom: 20px;
+  }
+  .eyebrow svg { width: 14px; height: 14px; }
+  h1 {
+    font-size: clamp(30px, 5vw, 48px);
+    font-weight: 800; letter-spacing: -.02em; line-height: 1.18;
+  }
+  h1 .accent { color: var(--brand); }
+  .sub { margin: 18px auto 0; max-width: 660px; font-size: 17px; color: var(--ink-2); }
+  .hero-actions { margin-top: 32px; display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 13px 26px; min-height: 44px; border-radius: 12px; font-size: 15px; font-weight: 700;
+    cursor: pointer; border: none; transition: all .15s; text-decoration: none;
+  }
+  .btn-primary { background: var(--brand); color: #fff; box-shadow: 0 4px 14px rgba(29,109,240,.3); }
+  .btn-primary:hover { background: var(--brand-deep); transform: translateY(-1px); }
+  .btn-ghost { background: #fff; color: var(--ink); border: 1px solid var(--line); }
+  .btn-ghost:hover { border-color: var(--brand); color: var(--brand-deep); }
+  .hero-note { margin-top: 14px; font-size: 14px; color: var(--ink-3); }
+
+  /* ===== App mockup ===== */
+  .mockup {
+    margin: 56px auto 0; max-width: 860px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 18px;
+    box-shadow: var(--shadow); overflow: hidden; text-align: left;
+  }
+  .mockup-bar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 16px; border-bottom: 1px solid var(--line); background: #fafbfc;
+  }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .dot.r { background: #f97066; } .dot.y { background: #fec84b; } .dot.g { background: #12b76a; }
+  .mockup-bar .title { margin-left: 10px; font-size: 13px; color: var(--ink-2); font-weight: 600; }
+  .mockup-body { display: flex; min-height: 320px; }
+  .mockup-side { width: 218px; border-right: 1px solid var(--line); padding: 14px 10px; background: #fcfcfd; }
+  .mockup-side .sec { font-size: 12px; color: var(--ink-3); padding: 6px 10px 4px; letter-spacing: .06em; font-weight: 600; }
+  .preset-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 10px; border-radius: 8px; font-size: 13px; margin-bottom: 4px;
+  }
+  .preset-item.active { background: var(--brand); color: #fff; font-weight: 700; }
+  .preset-item:not(.active) { color: var(--ink-2); }
+  .preset-tag { font-size: 12px; padding: 2px 7px; border-radius: 999px; background: rgba(0,0,0,.06); }
+  .preset-item.active .preset-tag { background: rgba(255,255,255,.22); }
+  .mockup-main { flex: 1; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+  .drop {
+    border: 2px dashed #c7d2e5; border-radius: 12px; padding: 26px 16px; text-align: center;
+    color: var(--ink-3); font-size: 13px; background: #fbfcfe;
+  }
+  .drop strong { display: block; font-size: 14px; color: var(--ink-2); margin-bottom: 2px; }
+  .queue-item {
+    display: flex; align-items: center; gap: 12px;
+    border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: #fff;
+  }
+  .queue-item .file { flex: 1; min-width: 0; }
+  .queue-item .file b { display: block; font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .queue-item .file span { font-size: 12px; color: var(--ink-3); }
+  .bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; width: 120px; }
+  .bar i { display: block; height: 100%; background: var(--brand); border-radius: 3px; }
+  .size { font-size: 12px; font-weight: 700; color: var(--ok); white-space: nowrap; }
+
+  /* ===== Value props ===== */
+  section { padding: 64px 0; }
+  .sec-head { text-align: center; max-width: 640px; margin: 0 auto 40px; }
+  .sec-head h2 { font-size: 28px; font-weight: 800; letter-spacing: -.01em; }
+  .sec-head p { margin-top: 10px; color: var(--ink-2); font-size: 15px; }
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 24px; box-shadow: var(--shadow);
+  }
+  .card .ic {
+    width: 40px; height: 40px; border-radius: 10px; background: var(--brand-soft);
+    display: grid; place-items: center; margin-bottom: 14px; color: var(--brand-deep);
+  }
+  .card h3 { font-size: 16px; font-weight: 800; margin-bottom: 6px; }
+  .card p { font-size: 14px; color: var(--ink-2); }
+
+  /* ===== Preset matrix ===== */
+  .preset-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .pcell {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 18px; display: flex; align-items: center; gap: 14px;
+  }
+  .pcell .pf { font-size: 22px; font-weight: 800; color: var(--brand); }
+  .pcell b { display: block; font-size: 14px; font-weight: 800; }
+  .pcell span { font-size: 12px; color: var(--ink-3); }
+  .pcell .rule { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--ok); background: #e8f9f0; padding: 4px 9px; border-radius: 999px; white-space: nowrap; }
+
+  /* ===== Pricing ===== */
+  .price-grid { display: grid; grid-template-columns: 1.05fr 1fr; gap: 18px; max-width: 780px; margin: 0 auto; }
+  .price {
+    background: var(--card); border-radius: 16px; padding: 30px; box-shadow: var(--shadow);
+    border: 1px solid var(--line); position: relative;
+  }
+  .price.feature { border: 2px solid var(--brand); }
+  .price .tag {
+    position: absolute; top: -12px; left: 28px; background: var(--brand); color: #fff;
+    font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 999px;
+  }
+  .price .name { font-size: 15px; font-weight: 800; color: var(--ink-2); }
+  .price .amount { margin: 10px 0 4px; font-size: 34px; font-weight: 800; }
+  .price .amount small { font-size: 14px; font-weight: 500; color: var(--ink-3); }
+  .price ul { list-style: none; margin: 18px 0 22px; }
+  .price li { font-size: 14px; color: var(--ink-2); padding: 7px 0 7px 26px; position: relative; }
+  .price li::before {
+    content: ""; position: absolute; left: 4px; top: 14px; width: 12px; height: 12px;
+    border-radius: 50%; background: var(--ok); opacity: .85;
+  }
+  .price .btn { width: 100%; }
+  .price .strike { text-decoration: line-through; color: var(--ink-3); font-weight: 400; }
+  .compare-note { text-align: center; font-size: 13px; color: var(--ink-3); margin-top: 18px; }
+
+  /* ===== Beta form ===== */
+  #signup { background: #fff; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 0 24px; }
+  form { max-width: 560px; margin: 0 auto; }
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 14px; font-weight: 700; margin-bottom: 7px; }
+  .field input, .field select {
+    width: 100%; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px;
+    font-size: 14px; font-family: inherit; background: #fbfcfe; color: var(--ink);
+  }
+  .field input:focus, .field select:focus { outline: 2px solid var(--brand); border-color: transparent; }
+  .field .hint { font-size: 12px; color: var(--ink-3); margin-top: 5px; }
+  form .btn { width: 100%; margin-top: 8px; }
+  .toast {
+    position: fixed; left: 50%; bottom: 32px; transform: translateX(-50%) translateY(80px);
+    background: var(--ink); color: #fff; padding: 12px 22px; border-radius: 10px;
+    font-size: 14px; opacity: 0; transition: all .3s; pointer-events: none; z-index: 99;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  footer { padding: 36px 0 48px; text-align: center; font-size: 13px; color: var(--ink-3); }
+  footer a { color: var(--brand); text-decoration: none; }
+
+  /* ===== Responsive ===== */
+  @media (max-width: 860px) {
+    .cards { grid-template-columns: 1fr; }
+    .preset-grid { grid-template-columns: 1fr 1fr; }
+    .price-grid { grid-template-columns: 1fr; }
+    .mockup-side { display: none; }
+    .mockup-body { min-height: 0; }
+    header.hero { padding-block: 48px 40px; }
+    section { padding: 48px 0; }
+  }
+  @media (max-width: 520px) {
+    .preset-grid { grid-template-columns: 1fr; }
+    .bar { width: 72px; }
+    .field input, .field select { font-size: 16px; }
+    /* 移动端辅助文字放大，保证可读性 */
+    .eyebrow { font-size: 14px; }
+    .drop { font-size: 14px; }
+    .drop strong { font-size: 15px; }
+    .preset-item { font-size: 14px; }
+    .preset-tag { font-size: 13px; }
+    .size { font-size: 13px; }
+    .mockup-bar .title { font-size: 14px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== Nav ===== -->
+<nav>
+  <div class="wrap">
+    <div class="logo"><span class="logo-mark">T</span>TinyPress</div>
+    <button class="cta" onclick="document.getElementById('signup').scrollIntoView({behavior:'smooth'})">Join the beta</button>
+  </div>
+</nav>
+
+<!-- ===== Hero ===== -->
+<header class="hero wrap">
+  <div class="eyebrow">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+    Images + Video · 100% on-device
+  </div>
+  <h1>Pick a platform.<br />Drop files. <span class="accent">Done.</span></h1>
+  <p class="sub">No bitrate charts, no parameter anxiety. TinyPress bakes each platform's hard limits into one-click presets — and compresses your images and videos to fit, with minimal quality loss.</p>
+  <div class="hero-actions">
+    <button class="btn btn-primary" onclick="document.getElementById('signup').scrollIntoView({behavior:'smooth'})">Join the beta</button>
+    <button class="btn btn-ghost" onclick="document.getElementById('presets').scrollIntoView({behavior:'smooth'})">See the presets</button>
+  </div>
+  <p class="hero-note">Everything runs on your machine — files never get uploaded · No account needed · Works offline</p>
+
+  <!-- App mockup -->
+  <div class="mockup" aria-label="Product interface mockup">
+    <div class="mockup-bar">
+      <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+      <span class="title">TinyPress</span>
+    </div>
+    <div class="mockup-body">
+      <div class="mockup-side">
+        <div class="sec">VIDEO PRESETS</div>
+        <div class="preset-item active">YouTube 1080p<span class="preset-tag">YouTube</span></div>
+        <div class="preset-item">TikTok vertical<span class="preset-tag">TikTok</span></div>
+        <div class="preset-item">Instagram Reels<span class="preset-tag">IG</span></div>
+        <div class="preset-item">X / Twitter<span class="preset-tag">X</span></div>
+        <div class="sec">IMAGE PRESETS</div>
+        <div class="preset-item">Discord upload<span class="preset-tag">≤10MB</span></div>
+        <div class="preset-item">Email attachment<span class="preset-tag">≤25MB</span></div>
+      </div>
+      <div class="mockup-main">
+        <div class="drop"><strong>Drop images or videos</strong>Batch mode · Mix files freely</div>
+        <div class="queue-item">
+          <div class="file"><b>product-demo.mp4</b><span>YouTube 1080p</span></div>
+          <div class="bar"><i style="width:100%"></i></div>
+          <span class="size">48.2MB → 6.8MB</span>
+        </div>
+        <div class="queue-item">
+          <div class="file"><b>main-image.png</b><span>Discord upload (≤10MB)</span></div>
+          <div class="bar"><i style="width:72%"></i></div>
+          <span class="size">Compressing…</span>
+        </div>
+        <div class="queue-item">
+          <div class="file"><b>album-photo.jpg</b><span>Email attachment</span></div>
+          <div class="bar"><i style="width:100%"></i></div>
+          <span class="size">1.4MB → 128KB</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ===== Value props ===== -->
+<section class="wrap">
+  <div class="sec-head">
+    <h2>Why a compressor that knows your platform?</h2>
+    <p>Free tools compress. They don't guarantee the result passes a platform's upload rules. TinyPress turns platform rules into presets, so the pitfalls are already handled.</p>
+  </div>
+  <div class="cards">
+    <div class="card">
+      <div class="ic">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2zm2 6h10M7 13h6"/></svg>
+      </div>
+      <h3>Presets with correct parameters</h3>
+      <p>YouTube, TikTok, Instagram, Discord, email — each preset carries that platform's real limits. Pick one and go, no guesswork.</p>
+    </div>
+    <div class="card">
+      <div class="ic">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+      </div>
+      <h3>Images and video, one pipeline</h3>
+      <p>Drop a mixed batch, process in parallel. Images use perceptual compression; video uses FFmpeg with quality-aware encoding parameters.</p>
+    </div>
+    <div class="card">
+      <div class="ic">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
+      </div>
+      <h3>100% local, privacy first</h3>
+      <p>Compression happens on your computer. Nothing is uploaded, nothing touches a server, and it works offline — safe for sensitive footage.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Preset matrix ===== -->
+<section class="wrap" id="presets">
+  <div class="sec-head">
+    <h2>Platform limits, built in</h2>
+    <p>Presets update as platform rules change — no reinstall needed.</p>
+  </div>
+  <div class="preset-grid">
+    <div class="pcell"><span class="pf">YT</span><div><b>YouTube 1080p</b><span>Video · H.264 recommended</span></div><span class="rule">≤12 Mbps</span></div>
+    <div class="pcell"><span class="pf">TT</span><div><b>TikTok vertical</b><span>Video · 1080×1920</span></div><span class="rule">9:16</span></div>
+    <div class="pcell"><span class="pf">IG</span><div><b>Instagram Reels</b><span>Video · H.264 · 9:16</span></div><span class="rule">Size first</span></div>
+    <div class="pcell"><span class="pf">X</span><div><b>X / Twitter</b><span>Video · H.264 · MP4</span></div><span class="rule">≤512MB</span></div>
+    <div class="pcell"><span class="pf">DC</span><div><b>Discord upload</b><span>Image · perceptual</span></div><span class="rule">≤10MB</span></div>
+    <div class="pcell"><span class="pf">@</span><div><b>Email attachment</b><span>Image · attach &amp; send</span></div><span class="rule">≤25MB</span></div>
+  </div>
+</section>
+
+<!-- ===== Pricing ===== -->
+<section class="wrap">
+  <div class="sec-head">
+    <h2>One-time license. Own it forever.</h2>
+    <p>No subscriptions, no credit packs, no feature walls. Pay once — every future major update is included.</p>
+  </div>
+  <div class="price-grid">
+    <div class="price feature">
+      <span class="tag">Recommended</span>
+      <div class="name">TinyPress — Lifetime</div>
+      <div class="amount">$59 <small>one-time</small></div>
+      <ul>
+        <li>All image + video compression features</li>
+        <li>All platform presets + future presets</li>
+        <li>Batch processing &amp; folder watch</li>
+        <li>Free upgrades for every major version</li>
+        <li>Beta launch offer: $39 (reserve during beta)</li>
+      </ul>
+      <button class="btn btn-primary" onclick="document.getElementById('signup').scrollIntoView({behavior:'smooth'})">Join the beta</button>
+    </div>
+    <div class="price">
+      <div class="name">Typical commercial suites</div>
+      <div class="amount">$55/yr <small>subscription, or $65+ one-time</small></div>
+      <ul>
+        <li>Video conversion first; weak image compression</li>
+        <li>Device presets for old models, few platform presets</li>
+        <li class="strike">Major version upgrades require re-purchase</li>
+        <li class="strike">Free tiers with feature walls &amp; watermarks</li>
+        <li class="strike">Some features require cloud processing / uploads</li>
+      </ul>
+      <button class="btn btn-ghost" onclick="toast('Reference: comparison is based on public vendor pricing, Sep 2026.')">Pricing reference</button>
+    </div>
+  </div>
+  <p class="compare-note">* Pricing comparison based on public vendor information, September 2026. Final pricing may adjust before launch.</p>
+</section>
+
+<!-- ===== Beta form ===== -->
+<section id="signup">
+  <div class="sec-head" style="padding-top:8px">
+    <h2>First beta cohort · limited spots</h2>
+    <p>Beta users get full features free, and your feedback sets the feature roadmap.</p>
+  </div>
+  <form id="signupForm" onsubmit="return submitForm(event)">
+    <div class="field">
+      <label for="email">Email</label>
+      <input id="email" type="email" placeholder="you@example.com" required />
+    </div>
+    <div class="field">
+      <label for="platform">Where do you mostly publish?</label>
+      <select id="platform">
+        <option>YouTube</option><option>TikTok</option><option>Instagram</option>
+        <option>X / Twitter</option><option>Other</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="filetype">What do you compress most?</label>
+      <select id="filetype">
+        <option>Mostly video</option><option>Mostly images</option><option>Both images and video</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" type="submit">Submit &amp; join the beta</button>
+    <div class="field" style="margin-top:12px">
+      <div class="hint" style="text-align:center">Your email is used only for beta invitations. No spam, no sharing.</div>
+    </div>
+  </form>
+</section>
+
+<footer class="wrap">
+  <p>TinyPress · Privacy-first image &amp; video compressor · Preset parameters from public platform documentation</p>
+  <p style="margin-top:6px">Questions or partnerships: <a href="mailto:hello@tinypress.app">hello@tinypress.app</a></p>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ===== Beta form collection config =====
+  // Before launch, set FORM_ENDPOINT to your collector:
+  //   1. Formspree: https://formspree.io/f/your-form-id (POST JSON works)
+  //   2. Your own endpoint accepting JSON: {email, platform, filetype}
+  // When empty (""), submissions are kept in localStorage (view via DevTools → Application).
+  const FORM_ENDPOINT = "";
+
+  function submitForm(e) {
+    e.preventDefault();
+    const data = {
+      email: document.getElementById("email").value.trim(),
+      platform: document.getElementById("platform").value,
+      filetype: document.getElementById("filetype").value,
+      at: new Date().toISOString(),
+    };
+    if (!data.email) {
+      toast("Please enter your email.");
+      return false;
+    }
+
+    saveLocal(data);
+
+    if (FORM_ENDPOINT) {
+      fetch(FORM_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          toast("Submitted! We'll notify you when the beta opens.");
+        })
+        .catch((err) => {
+          console.error("Form service failed, saved locally:", err);
+          toast("Submission failed — saved locally, please retry later.");
+        });
+    } else {
+      toast("Recorded! We'll notify you when the beta opens.");
+    }
+    e.target.reset();
+    return false;
+  }
+
+  // Local fallback (also handy for debugging)
+  function saveLocal(data) {
+    try {
+      const key = "tinypress_waitlist_en";
+      const list = JSON.parse(localStorage.getItem(key) || "[]");
+      list.push(data);
+      localStorage.setItem(key, JSON.stringify(list));
+    } catch (err) { /* storage failure should not block */ }
+  }
+
+  let toastTimer = null;
+  function toast(msg) {
+    const el = document.getElementById("toast");
+    el.textContent = msg;
+    el.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove("show"), 2800);
+  }
+</script>
+</body>
+</html>

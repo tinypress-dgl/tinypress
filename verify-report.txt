@@ -1,0 +1,17 @@
+=== TinyPress 本机验证环境自检 ===
+平台: linux x64
+
+[✓] Node.js (≥20) — v22.23.2
+[✓] npm (≥10) — 10.9.8
+[✓] cargo — cargo 1.98.1 (797e8a9bc 2026-08-05)
+[✓] rustc — rustc 1.98.1 (48a229cea 2026-09-01)
+[✓] 前端依赖 node_modules — 已安装（若之前 npm install 过旧版本可重跑）
+[✓] Tauri 工程入口完整 — main.rs / lib.rs / tauri.conf.json / Cargo.toml 齐备
+[✗] 压缩引擎二进制 — ffmpeg(PATH✓) ffprobe(PATH✓) cjpeg(✗缺失) pngquant(bins/✓) cwebp(bins/✓) avifenc(✗缺失)
+[✓] 提示 — 运行 node scripts/fetch-bins.mjs 下载；失败项手动放入 src-tauri/bins/（见 README 兼容矩阵）
+[✓] licenses/ 许可证目录 — 完整
+[✗] Tauri 运行时库 — 缺失: libwebkit2gtk-4.1.so.0, libsoup-3.0.so.0（sudo apt install libwebkit2gtk-4.1-0 libgtk-3-0 libsoup-3.0-0）
+[✓] 打包命令可用 — npm run tauri build（首次较慢，产物在 src-tauri/target/release/bundle/）
+
+结论: 9 项通过 / 2 项未通过
+未通过项请按上面对应提示处理；也可直接贴回本报告获取修复建议。

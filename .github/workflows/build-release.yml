@@ -1,0 +1,62 @@
+name: Build Release
+
+# 触发：
+#   - 推送 v* 标签（发布正式版，自动生成 Release 草稿）
+#   - 手动触发（workflow_dispatch，调试用）
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            bundle: nsis
+          - os: macos-latest
+            bundle: dmg
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install dependencies
+        run: npm ci
+
+      # 下载压缩引擎二进制（ffmpeg/cjpeg/pngquant/cwebp/avifenc → src-tauri/bins/）
+      # 注：引擎下载失败不阻断打包（应用可在无引擎状态下安装，运行时会提示）
+      - name: Fetch engine binaries
+        run: node scripts/fetch-bins.mjs
+        continue-on-error: true
+
+      # 官方 tauri-action：自动处理系统依赖、构建 + 打 Release 草稿
+      - name: Tauri build & release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: v__VERSION__
+          releaseName: "TinyPress v__VERSION__"
+          releaseBody: "TinyPress 自动构建。安装包内含压缩引擎二进制。"
+          releaseDraft: true
+          prerelease: false
+          args: --bundles ${{ matrix.bundle }}

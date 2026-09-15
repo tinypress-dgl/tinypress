@@ -1,0 +1,7 @@
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/bins/
+landing/_shots/
+*.deb
+*.log
