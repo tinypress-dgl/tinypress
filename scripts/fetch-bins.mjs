@@ -33,7 +33,6 @@ const ENGINES = {
     urls: {
       win32:
         "https://github.com/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-win64-gpl.zip",
-      darwin: "https://evermeet.cx/ffmpeg/getrelease/zip",
       linux:
         "https://github.com/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-linux64-gpl.tar.xz",
     },
@@ -45,14 +44,10 @@ const ENGINES = {
       [files.find((f) => /(^|\/)ffprobe(\.exe)?$/.test(f))].filter(Boolean),
   },
   cjpeg: {
-    urls: {
-      win32:
-        "https://github.com/mozilla/mozjpeg/releases/download/v4.1.1/mozjpeg-4.1.1-windows-x64.zip",
-      darwin:
-        "https://github.com/mozilla/mozjpeg/releases/download/v4.1.1/mozjpeg-4.1.1-release-mac64.zip",
-    },
+    // Windows/macOS 暂无稳定预编译源：Windows 由 ffmpeg mjpeg 编码兜底，macOS 走 brew jpeg-turbo
+    urls: {},
     altHint:
-      "Linux 请用 `sudo apt install mozjpeg`（含 cjpeg），确保在 PATH 中",
+      "cjpeg 缺失时应用自动用 ffmpeg mjpeg 编码 JPEG；macOS 可 brew install jpeg-turbo；Linux 用 apt install libjpeg-turbo-progs",
     extract: "archive",
     pick: (files) =>
       files.find((f) => /(^|\/)cjpeg(\.exe)?$/.test(f)) ||
@@ -62,8 +57,7 @@ const ENGINES = {
     urls: {
       win32:
         "https://pngquant.org/pngquant-windows.zip",
-      darwin:
-        "https://github.com/kornelski/pngquant/releases/download/3.0.3/pngquant-3.0.3-macos-arm64.zip",
+
       linux:
         "https://pngquant.org/pngquant-linux.tar.bz2",
     },
@@ -76,8 +70,7 @@ const ENGINES = {
     urls: {
       win32:
         "https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-1.4.0-windows-x64.zip",
-      darwin:
-        "https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-1.4.0-mac-12.3-arm64.tar.gz",
+
       linux:
         "https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-1.4.0-linux-x86-64.tar.gz",
     },
@@ -87,13 +80,10 @@ const ENGINES = {
       files.find((f) => /cwebp/.test(f)),
   },
   avifenc: {
-    // Windows 直接下载官方构建；macOS/Linux 建议走系统包管理器
-    urls: {
-      win32:
-        "https://github.com/link-u/avif-win-builds/releases/download/v1.0.1/avifenc.exe",
-    },
+    // AVIF 编码：ffmpeg(libaom-av1) 兜底；macOS `brew install libavif` / Linux `apt install libavif-bin`
+    urls: {},
     altHint:
-      "avifenc 请用包管理器安装：macOS `brew install libavif` / Linux `sudo apt install libavif-bin`，并确保在 PATH 中",
+      "avifenc 缺失时应用自动用 ffmpeg -c:v libaom-av1 编码 AVIF；macOS brew install libavif / Linux apt install libavif-bin",
     extract: "none",
     pick: (files) => files[0],
   },

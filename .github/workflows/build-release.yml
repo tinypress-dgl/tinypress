@@ -46,10 +46,12 @@ jobs:
         run: node scripts/fetch-bins.mjs
         continue-on-error: true
 
-      # macOS 兜底：pngquant 官方 mac 预编译包未稳定提供，用 Homebrew 安装到 PATH
-      - name: Install pngquant (macOS)
+      # macOS 兜底：官方预编译源不稳定，引擎统一用 Homebrew 安装到 PATH（arm64 原生）
+      - name: Install engines via Homebrew (macOS)
         if: runner.os == 'macOS'
-        run: brew install pngquant
+        run: |
+          brew install ffmpeg pngquant webp jpeg-turbo libavif
+          echo "引擎安装完成: $(which ffmpeg) $(which pngquant) $(which cwebp) $(which cjpeg) $(which avifenc)"
         continue-on-error: true
 
       # 官方 tauri-action：自动处理系统依赖、构建 + 打 Release 草稿
