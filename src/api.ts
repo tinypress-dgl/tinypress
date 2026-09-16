@@ -127,6 +127,26 @@ export async function onFilesDropped(
 
 export type DragDropPhase = "enter" | "over" | "drop" | "leave";
 
+/**
+ * 原生层文件拖放事件（Rust 端 on_drag_drop_event 转发，不依赖前端窗口 API）。
+ * 普通事件通道，与 compress_progress 同机制，可靠性最高。
+ */
+export async function onNativeFilesDropped(
+  cb: (paths: string[]) => void
+): Promise<() => void> {
+  return listen<string[]>("native-files-dropped", (e) => cb(e.payload));
+}
+
+/** 原生多选文件对话框（图片/视频）；用户取消返回 null */
+export function pickInputFiles(): Promise<string[] | null> {
+  return invoke<string[] | null>("pick_input_files");
+}
+
+/** 把用户输入的路径（文件/文件夹，可混排）解析为真实文件列表（文件夹递归收集媒体文件） */
+export function resolveInputPaths(paths: string[]): Promise<string[]> {
+  return invoke<string[]>("resolve_input_paths", { paths });
+}
+
 /** 打开文件所在目录（骨架阶段预留，P1 实现） */
 export function revealInFolder(_path: string): Promise<void> {
   return invoke("reveal_in_folder", { path: _path });

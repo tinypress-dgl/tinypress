@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import CompareView from "./components/CompareView";
+import AddFilesPanel from "./components/AddFilesPanel";
 import CustomPresetEditor from "./components/CustomPresetEditor";
 import DropZone from "./components/DropZone";
 import PresetSelector from "./components/PresetSelector";
@@ -305,6 +306,7 @@ export default function App() {
 
         <div className="space-y-3 p-4">
           <DropZone onFiles={handleFiles} />
+          <AddFilesPanel onFiles={handleFiles} />
           {queue.some((x) => x.status === "queued") && (
             <button
               type="button"

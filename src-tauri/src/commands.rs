@@ -419,3 +419,85 @@ pub fn pick_output_dir() -> Option<String> {
         .pick_folder()
         .map(|p| p.to_string_lossy().to_string())
 }
+
+/// 原生多选文件对话框（图片/视频）
+#[tauri::command]
+pub fn pick_input_files() -> Option<Vec<String>> {
+    rfd::FileDialog::new()
+        .set_title("选择要压缩的图片或视频")
+        .add_filter(
+            "图片/视频",
+            &[
+                "jpg", "jpeg", "png", "webp", "avif", "gif", "bmp", "mp4", "mov", "mkv",
+                "avi", "webm", "flv", "ts", "m4v", "wmv",
+            ],
+        )
+        .pick_files()
+        .map(|files| {
+            files
+                .into_iter()
+                .map(|f| f.to_string_lossy().to_string())
+                .collect()
+        })
+}
+
+/// 将用户输入的路径（文件或文件夹，多个可混排）解析为真实文件列表：
+/// 文件直接收录（不校验扩展名，交给压缩阶段判断）；文件夹递归收集媒体文件（跳过隐藏目录）
+#[tauri::command]
+pub fn resolve_input_paths(paths: Vec<String>) -> Result<Vec<String>, String> {
+    let mut out: Vec<String> = Vec::new();
+    for p in paths {
+        let pb = PathBuf::from(p.trim());
+        if pb.as_os_str().is_empty() {
+            continue;
+        }
+        if pb.is_file() {
+            out.push(pb.to_string_lossy().to_string());
+        } else if pb.is_dir() {
+            collect_media_files(&pb, &mut out)?;
+        }
+    }
+    Ok(out)
+}
+
+const IMG_EXTS: &[&str] = &["jpg", "jpeg", "png", "webp", "avif", "gif", "bmp"];
+const VID_EXTS: &[&str] = &[
+    "mp4", "mov", "mkv", "avi", "webm", "flv", "ts", "m4v", "wmv",
+];
+
+fn is_media_file(p: &std::path::Path) -> bool {
+    match p.extension().and_then(|e| e.to_str()) {
+        Some(e) => {
+            let e = e.to_lowercase();
+            IMG_EXTS.contains(&e.as_str()) || VID_EXTS.contains(&e.as_str())
+        }
+        None => false,
+    }
+}
+
+fn collect_media_files(dir: &PathBuf, out: &mut Vec<String>) -> Result<(), String> {
+    let mut stack = vec![dir.clone()];
+    let mut guard: usize = 0;
+    while let Some(d) = stack.pop() {
+        guard += 1;
+        if guard > 10_000 {
+            return Err("文件夹层级过深或文件过多，已中止展开".into());
+        }
+        let rd = std::fs::read_dir(&d).map_err(|e| format!("读取目录失败 {:?}: {}", d, e))?;
+        for ent in rd.flatten() {
+            let path = ent.path();
+            if path.is_dir() {
+                // 跳过隐藏目录（. 开头）
+                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                    if name.starts_with('.') {
+                        continue;
+                    }
+                }
+                stack.push(path);
+            } else if is_media_file(&path) {
+                out.push(path.to_string_lossy().to_string());
+            }
+        }
+    }
+    Ok(())
+}
