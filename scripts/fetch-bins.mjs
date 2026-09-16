@@ -61,9 +61,9 @@ const ENGINES = {
   pngquant: {
     urls: {
       win32:
-        "https://github.com/kornelski/pngquant/releases/latest/download/pngquant-windows.zip",
+        "https://pngquant.org/pngquant-windows.zip",
       darwin:
-        "https://github.com/kornelski/pngquant/releases/latest/download/pngquant-mac.tar.bz2",
+        "https://github.com/kornelski/pngquant/releases/download/3.0.3/pngquant-3.0.3-macos-arm64.zip",
       linux:
         "https://pngquant.org/pngquant-linux.tar.bz2",
     },
@@ -223,6 +223,6 @@ async function main() {
 }
 
 main().catch((e) => {
-  console.error(e);
+  console.error("[fetch-bins] 致命错误:", e.message);
   process.exit(1);
 });

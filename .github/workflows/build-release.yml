@@ -41,9 +41,15 @@ jobs:
         run: npm ci
 
       # 下载压缩引擎二进制（ffmpeg/cjpeg/pngquant/cwebp/avifenc → src-tauri/bins/）
-      # 注：引擎下载失败不阻断打包（应用可在无引擎状态下安装，运行时会提示）
+      # 注：单引擎失败不阻断（bins/.gitkeep 保证资源目录存在，应用运行时会如实显示引擎状态）
       - name: Fetch engine binaries
         run: node scripts/fetch-bins.mjs
+        continue-on-error: true
+
+      # macOS 兜底：pngquant 官方 mac 预编译包未稳定提供，用 Homebrew 安装到 PATH
+      - name: Install pngquant (macOS)
+        if: runner.os == 'macOS'
+        run: brew install pngquant
         continue-on-error: true
 
       # 官方 tauri-action：自动处理系统依赖、构建 + 打 Release 草稿

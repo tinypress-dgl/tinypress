@@ -6,3 +6,4 @@ landing/_shots/
 *.deb
 *.log
 .build/
+!src-tauri/bins/.gitkeep
