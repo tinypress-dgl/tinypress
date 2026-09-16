@@ -1,4 +1,5 @@
-import { convertFileSrc } from "@tauri-apps/api/core";
+import { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import type { QueueItem } from "../types";
 
 interface Props {
@@ -16,8 +17,40 @@ function isVideo(path: string): boolean {
   return /\.(mp4|mov|mkv|webm|avi|flv|m4v)$/i.test(path);
 }
 
+/**
+ * 通过 IPC 读取文件为 data URL（绕开 asset:// 协议，
+ * 规避 macOS WebKit URL scheme handler 在内存压力下 panic 崩溃）。
+ */
+function useDataUrl(path: string | null): string | null {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (!path) {
+      setUrl(null);
+      return;
+    }
+    setUrl(null);
+    invoke<string>("file_to_data_url", { path })
+      .then((u) => {
+        if (!cancelled) setUrl(u);
+      })
+      .catch(() => {
+        if (!cancelled) setUrl(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [path]);
+  return url;
+}
+
 /** 对比预览面板：压缩前后大小、压缩率、可播放/查看的预览 */
 export default function CompareView({ item }: Props) {
+  const outUrl = useDataUrl(item?.outputPath ?? null);
+  const inUrl = useDataUrl(
+    item?.status === "done" ? item.inputPath : null
+  );
+
   if (!item) {
     return (
       <aside className="flex w-96 shrink-0 flex-col border-l border-slate-200 bg-white">
@@ -33,9 +66,6 @@ export default function CompareView({ item }: Props) {
     outputSize !== undefined && inputSize > 0
       ? Math.max(0, Math.round((1 - outputSize / inputSize) * 100))
       : null;
-
-  const outSrc = item.outputPath ? convertFileSrc(item.outputPath) : null;
-  const inSrc = item.status === "done" ? convertFileSrc(item.inputPath) : null;
 
   return (
     <aside className="flex w-96 shrink-0 flex-col overflow-y-auto border-l border-slate-200 bg-white">
@@ -76,17 +106,17 @@ export default function CompareView({ item }: Props) {
           </div>
         )}
 
-        {outSrc && isVideo(item.outputPath!) && (
+        {outUrl && isVideo(item.outputPath!) && (
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-            <video src={outSrc} controls className="max-h-64 w-full" />
+            <video src={outUrl} controls className="max-h-64 w-full" />
             <p className="px-3 py-2 text-[11px] text-slate-400">压缩后 · 视频预览</p>
           </div>
         )}
 
-        {outSrc && !isVideo(item.outputPath!) && (
+        {outUrl && !isVideo(item.outputPath!) && (
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
             <img
-              src={outSrc}
+              src={outUrl}
               alt="压缩后预览"
               className="mx-auto max-h-64 w-auto object-contain"
             />
@@ -94,13 +124,13 @@ export default function CompareView({ item }: Props) {
           </div>
         )}
 
-        {inSrc && item.status === "done" && (
+        {inUrl && item.status === "done" && (
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
             {isVideo(item.inputPath) ? (
-              <video src={inSrc} controls className="max-h-48 w-full" />
+              <video src={inUrl} controls className="max-h-48 w-full" />
             ) : (
               <img
-                src={inSrc}
+                src={inUrl}
                 alt="原始预览"
                 className="mx-auto max-h-48 w-auto object-contain"
               />
@@ -109,7 +139,7 @@ export default function CompareView({ item }: Props) {
           </div>
         )}
 
-        {!outSrc && item.status !== "error" && (
+        {!outUrl && item.status !== "error" && (
           <div className="flex flex-1 items-center justify-center text-xs text-slate-400">
             {item.status === "running"
               ? `压缩中… ${item.progress}%`

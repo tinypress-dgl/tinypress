@@ -36,7 +36,8 @@ pub fn run() {
             commands::check_update,
             commands::pick_output_dir,
             commands::pick_input_files,
-            commands::resolve_input_paths
+            commands::resolve_input_paths,
+            commands::file_to_data_url
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

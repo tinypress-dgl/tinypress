@@ -501,3 +501,47 @@ fn collect_media_files(dir: &PathBuf, out: &mut Vec<String>) -> Result<(), Strin
     }
     Ok(())
 }
+
+/// 读取本地文件为 data URL（用于图片预览）。
+/// 走 IPC 而非 asset:// 协议：规避 macOS WebKit URL scheme handler 在内存压力下的崩溃。
+/// 限制单文件 30MB，避免超大文件撑爆内存。
+#[tauri::command]
+pub fn file_to_data_url(path: String) -> Result<String, String> {
+    use std::io::Read;
+
+    const MAX_BYTES: u64 = 30 * 1024 * 1024;
+
+    let p = PathBuf::from(&path);
+    if !p.is_file() {
+        return Err(format!("文件不存在: {path}"));
+    }
+    let meta = std::fs::metadata(&p).map_err(|e| format!("读取文件信息失败: {e}"))?;
+    if meta.len() > MAX_BYTES {
+        return Err("文件超过 30MB，不支持预览".to_string());
+    }
+    let mut buf = Vec::with_capacity(meta.len() as usize);
+    std::fs::File::open(&p)
+        .and_then(|mut f| f.read_to_end(&mut buf))
+        .map_err(|e| format!("读取文件失败: {e}"))?;
+
+    let mime = match p
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_lowercase())
+        .as_deref()
+    {
+        Some("png") => "image/png",
+        Some("jpg") | Some("jpeg") => "image/jpeg",
+        Some("webp") => "image/webp",
+        Some("gif") => "image/gif",
+        Some("avif") => "image/avif",
+        Some("bmp") => "image/bmp",
+        Some("mp4") => "video/mp4",
+        Some("webm") => "video/webm",
+        _ => "application/octet-stream",
+    };
+    Ok(format!(
+        "data:{mime};base64,{}",
+        base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &buf)
+    ))
+}

@@ -193,6 +193,17 @@ impl BinaryLocator {
                 }
             }
         }
+        // macOS Homebrew：GUI 应用从 Finder 启动时 PATH 不含 brew 目录，
+        // 需按固定路径兜底探测（Apple Silicon /opt/homebrew，Intel /usr/local）
+        for dir in [
+            Path::new("/opt/homebrew/bin"),
+            Path::new("/usr/local/bin"),
+        ] {
+            let cand = dir.join(bin_name(name));
+            if cand.is_file() {
+                return Some(cand);
+            }
+        }
         None
     }
 
