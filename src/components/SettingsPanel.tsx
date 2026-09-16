@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { pickOutputDir } from "../api";
 import type { Preset } from "../types";
 
 interface Props {
@@ -55,12 +56,25 @@ export default function SettingsPanel({
               <span className="mb-1 block text-xs font-medium text-slate-500">
                 输出目录（留空 = 与源文件同目录）
               </span>
-              <input
-                className={inputCls}
-                placeholder="如 D:\compressed"
-                value={outputDir}
-                onChange={(e) => onOutputDirChange(e.target.value)}
-              />
+              <div className="flex gap-2">
+                <input
+                  className={inputCls}
+                  placeholder="如 D:\compressed"
+                  value={outputDir}
+                  onChange={(e) => onOutputDirChange(e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const dir = await pickOutputDir();
+                    if (dir) onOutputDirChange(dir);
+                  }}
+                  className="shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+                  title="打开文件夹选择器"
+                >
+                  选择…
+                </button>
+              </div>
             </label>
             <label className="block">
               <span className="mb-1 block text-xs font-medium text-slate-500">
@@ -96,12 +110,25 @@ export default function SettingsPanel({
                 <span className="mb-1 block text-xs font-medium text-slate-500">
                   监控目录
                 </span>
-                <input
-                  className={inputCls}
-                  placeholder="如 D:\watch"
-                  value={watchDir}
-                  onChange={(e) => onWatchDirChange(e.target.value)}
-                />
+                <div className="flex gap-2">
+                  <input
+                    className={inputCls}
+                    placeholder="如 D:\watch"
+                    value={watchDir}
+                    onChange={(e) => onWatchDirChange(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const dir = await pickOutputDir();
+                      if (dir) onWatchDirChange(dir);
+                    }}
+                    className="shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+                    title="打开文件夹选择器"
+                  >
+                    选择…
+                  </button>
+                </div>
               </label>
               <label className="block">
                 <span className="mb-1 block text-xs font-medium text-slate-500">

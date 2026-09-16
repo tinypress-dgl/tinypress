@@ -409,3 +409,13 @@ pub fn get_watch_status(watch_state: State<'_, WatchState>) -> WatchStatus {
         running: watch_state.0.lock().unwrap().is_some(),
     }
 }
+
+/// 原生文件夹选择对话框（Windows/macOS/Linux 均原生）
+/// 同步 command：Tauri v2 在主线程执行，兼容 macOS NSApplication 主线程要求
+#[tauri::command]
+pub fn pick_output_dir() -> Option<String> {
+    rfd::FileDialog::new()
+        .set_title("选择输出目录")
+        .pick_folder()
+        .map(|p| p.to_string_lossy().to_string())
+}

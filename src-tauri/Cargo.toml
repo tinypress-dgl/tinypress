@@ -1,6 +1,6 @@
 [package]
 name = "tinypress"
-version = "0.1.0"
+version = "0.1.1"
 description = "TinyPress 速压 - 本地优先的图片+视频压缩工具"
 authors = ["TinyPress"]
 edition = "2021"
@@ -18,3 +18,5 @@ tauri = { version = "2", features = ["protocol-asset"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["full"] }
+# Linux 用纯 GTK3 对话框（避免 xdg-portal → soup3 依赖）；Windows/macOS 原生不受影响
+rfd = { version = "0.15", default-features = false, features = ["gtk3"] }

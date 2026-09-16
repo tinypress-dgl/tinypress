@@ -40,6 +40,11 @@ export function getAppVersion(): Promise<string> {
   return invoke<string>("get_app_version");
 }
 
+/** 原生文件夹选择对话框；用户取消时返回 null */
+export function pickOutputDir(): Promise<string | null> {
+  return invoke<string | null>("pick_output_dir");
+}
+
 /** 更新源配置（update-config.json 的 updateUrl；未配置 = undefined） */
 export function checkUpdate(): Promise<{ current: string; updateUrl?: string }> {
   return invoke("check_update");
@@ -110,16 +115,17 @@ export async function onJobDone(
   return listen<QueueItem>("compress_done", (e) => cb(e.payload));
 }
 
-/** 窗口级拖放事件，返回落盘文件路径列表 */
+/** 窗口级拖放事件：phase 区分 enter/over/leave/drop，drop 时返回落盘文件路径列表 */
 export async function onFilesDropped(
-  cb: (paths: string[]) => void
+  cb: (phase: DragDropPhase, paths?: string[]) => void
 ): Promise<() => void> {
   return getCurrentWindow().onDragDropEvent((event) => {
-    if (event.payload.type === "drop") {
-      cb(event.payload.paths);
-    }
+    const type = event.payload.type;
+    cb(type, type === "drop" ? event.payload.paths : undefined);
   });
 }
+
+export type DragDropPhase = "enter" | "over" | "drop" | "leave";
 
 /** 打开文件所在目录（骨架阶段预留，P1 实现） */
 export function revealInFolder(_path: string): Promise<void> {

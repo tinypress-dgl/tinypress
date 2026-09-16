@@ -6,28 +6,32 @@ interface Props {
   disabled?: boolean;
 }
 
-/** 拖入区：支持窗口级拖放（Tauri onDragDropEvent） */
+/**
+ * 拖入区：使用 Tauri 原生窗口级拖放事件（onDragDropEvent）。
+ * 注意：不能在此处监听 HTML5 dragover/drop 并 preventDefault，
+ * 那会拦截 WebView2 的原生文件拖放，导致 onDragDropEvent 不触发。
+ */
 export default function DropZone({ onFiles, disabled }: Props) {
   const [active, setActive] = useState(false);
 
   useEffect(() => {
-    const unlisten = onFilesDropped((paths) => {
-      setActive(false);
-      onFiles(paths);
+    const unlisten = onFilesDropped((phase, paths) => {
+      if (phase === "enter" || phase === "over") {
+        if (!disabled) setActive(true);
+      } else if (phase === "leave") {
+        setActive(false);
+      } else if (phase === "drop") {
+        setActive(false);
+        if (paths && paths.length > 0) onFiles(paths);
+      }
     });
     return () => {
       unlisten.then((fn) => fn());
     };
-  }, [onFiles]);
+  }, [onFiles, disabled]);
 
   return (
     <div
-      onDragEnter={(e) => {
-        e.preventDefault();
-        if (!disabled) setActive(true);
-      }}
-      onDragOver={(e) => e.preventDefault()}
-      onDragLeave={() => setActive(false)}
       className={`flex h-40 flex-col items-center justify-center rounded-2xl border-2 border-dashed transition-colors ${
         active
           ? "border-blue-500 bg-blue-50"
