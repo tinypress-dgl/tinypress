@@ -20,8 +20,12 @@ jobs:
         include:
           - os: windows-latest
             bundle: nsis
+          # macOS 构建 Universal 双架构（Intel x86_64 + Apple Silicon arm64），
+          # 一个 dmg 同时支持两种 Mac
           - os: macos-latest
             bundle: dmg
+            rust_targets: aarch64-apple-darwin,x86_64-apple-darwin
+            tauri_target: universal-apple-darwin
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -35,6 +39,8 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_targets }}
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
@@ -50,7 +56,7 @@ jobs:
         run: node scripts/fetch-bins.mjs
         continue-on-error: true
 
-      # macOS 兜底：官方预编译源不稳定，引擎统一用 Homebrew 安装到 PATH（arm64 原生）
+      # macOS 兜底：官方预编译源不稳定，引擎统一用 Homebrew 安装到 PATH
       - name: Install engines via Homebrew (macOS)
         if: runner.os == 'macOS'
         run: |
@@ -71,4 +77,4 @@ jobs:
           releaseBody: "TinyPress 自动构建。安装包内含压缩引擎二进制。"
           releaseDraft: true
           prerelease: false
-          args: --bundles ${{ matrix.bundle }}
+          args: ${{ matrix.tauri_target && format('--bundles {0} --target {1}', matrix.bundle, matrix.tauri_target) || format('--bundles {0}', matrix.bundle) }}
