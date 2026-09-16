@@ -1,6 +1,6 @@
 [package]
 name = "tinypress"
-version = "0.1.4"
+version = "0.1.5"
 description = "TinyPress 速压 - 本地优先的图片+视频压缩工具"
 authors = ["TinyPress"]
 edition = "2021"
@@ -15,6 +15,9 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2" }
+# localhost HTTP 托管前端资源：绕开 macOS WKWebView URLSchemeHandler 崩溃路径（macOS 26 Intel 内存压力下 panic）
+tauri-plugin-localhost = "2"
+portpicker = "0.1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["full"] }

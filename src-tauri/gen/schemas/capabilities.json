@@ -1,1 +1,1 @@
-{}
+{"default":{"identifier":"default","description":"TinyPress 主窗口能力：前端资源经 localhost HTTP 加载（绕开 macOS WebKit URLSchemeHandler 崩溃路径），需授权远程源调用 IPC","remote":{"urls":["http://localhost:*","http://127.0.0.1:*"]},"local":true,"windows":["main"],"permissions":["core:default"]}}
