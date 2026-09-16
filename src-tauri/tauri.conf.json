@@ -48,6 +48,12 @@
     ],
     "resources": [
       "bins/*"
-    ]
+    ],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper",
+        "silent": true
+      }
+    }
   }
 }
