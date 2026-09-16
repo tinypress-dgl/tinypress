@@ -2,7 +2,7 @@ mod commands;
 mod engine;
 mod presets;
 
-use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{Emitter, WebviewUrl, WebviewWindowBuilder};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -24,7 +24,7 @@ pub fn run() {
                 let _ = webview.emit("native-files-dropped", paths);
             }
         })
-        .setup(|app| {
+        .setup(move |app| {
             #[cfg(dev)]
             let url = WebviewUrl::App(std::path::PathBuf::from("/"));
             #[cfg(not(dev))]
