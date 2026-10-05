@@ -22,6 +22,15 @@ pub struct JobParams {
     /// v0.3.0：音轨提取（mp3/wav）
     #[serde(default)]
     pub audio_only: Option<String>,
+    /// v0.4.0：图片转 PDF
+    #[serde(default)]
+    pub pdf: bool,
+    /// v0.4.0：视频封面抽帧（时间点秒）
+    #[serde(default)]
+    pub cover_at: Option<f64>,
+    /// v0.4.0：输出替换源文件
+    #[serde(default)]
+    pub replace_source: bool,
 }
 
 /// 单个压缩任务的状态快照（与前端 types.ts 对齐，camelCase）

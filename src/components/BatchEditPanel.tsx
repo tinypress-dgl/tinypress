@@ -8,9 +8,11 @@ const labelCls = "block text-xs font-medium text-slate-500 mb-1";
 const secCls = "mb-3 rounded-xl border border-slate-200 p-3";
 
 /**
- * v0.3.0 全局批处理面板：
+ * v0.4.0 全局批处理面板：
  *  - 图片批量编辑（尺寸/旋转/裁剪/文字水印/图片水印/输出格式），应用到队列中全部图片任务
- *  - 视频容器转换 / 音轨提取，应用到队列中全部视频任务
+ *  - 图片转 PDF（与图片编辑互斥，开启后图片任务全部转 PDF）
+ *  - 视频容器转换 / 音轨提取 / 封面抽帧，应用到队列中全部视频任务
+ *  - 替换源文件（全局）
  * 与 WPS「图片批量工具箱 + 视频工具箱」对齐，纯本地处理不上传。
  */
 export default function BatchEditPanel({
@@ -20,6 +22,12 @@ export default function BatchEditPanel({
   onContainer,
   audioOnly,
   onAudioOnly,
+  pdfMode,
+  onPdfMode,
+  coverAt,
+  onCoverAt,
+  replaceSource,
+  onReplaceSource,
 }: {
   imageEdit: ImageEditOptions | null;
   onImageEdit: (v: ImageEditOptions | null) => void;
@@ -27,6 +35,12 @@ export default function BatchEditPanel({
   onContainer: (v: string) => void;
   audioOnly: string;
   onAudioOnly: (v: string) => void;
+  pdfMode: boolean;
+  onPdfMode: (v: boolean) => void;
+  coverAt: string;
+  onCoverAt: (v: string) => void;
+  replaceSource: boolean;
+  onReplaceSource: (v: boolean) => void;
 }) {
   const [ie, setIe] = useState<ImageEditOptions>(
     imageEdit ?? {
@@ -113,9 +127,26 @@ export default function BatchEditPanel({
       <div className="grid grid-cols-1 gap-3 p-3 md:grid-cols-2">
         {/* ===== 图片批量编辑 ===== */}
         <div className={secCls}>
-          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
-            图片批量编辑
-          </h4>
+          <div className="mb-2 flex items-center justify-between">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+              图片批量编辑
+            </h4>
+            <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
+              <input
+                type="checkbox"
+                checked={pdfMode}
+                onChange={(e) => {
+                  onPdfMode(e.target.checked);
+                  if (e.target.checked) onAudioOnly("");
+                }}
+                className="h-3.5 w-3.5 accent-blue-600"
+              />
+              转 PDF
+            </label>
+          </div>
+          <p className={pdfMode ? "mb-2 text-xs text-amber-600" : "hidden"}>
+            转 PDF 开启：全部图片任务输出单页 PDF（JPEG 直嵌，A4 适配），编辑参数不生效
+          </p>
           <div className="mb-3 grid grid-cols-2 gap-2">
             {num("缩放 %", "scalePercent", "如 50=缩半", 1, 1, 1000)}
             {num("宽度 px", "width", "如 1920", 1, 1)}
@@ -216,14 +247,33 @@ export default function BatchEditPanel({
 
         {/* ===== 视频批量处理 ===== */}
         <div className={secCls}>
-          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
-            视频批量处理
-          </h4>
+          <div className="mb-2 flex items-center justify-between">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+              视频批量处理
+            </h4>
+            <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
+              <input
+                type="checkbox"
+                checked={coverAt !== ""}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    onCoverAt(coverAt || "1");
+                    onContainer("");
+                    onAudioOnly("");
+                  } else {
+                    onCoverAt("");
+                  }
+                }}
+                className="h-3.5 w-3.5 accent-blue-600"
+              />
+              封面抽帧
+            </label>
+          </div>
           <label className="mb-2 block">
             <span className={labelCls}>容器转换</span>
             <select
               value={container}
-              disabled={audioOnly !== ""}
+              disabled={audioOnly !== "" || coverAt !== ""}
               className={inputCls}
               onChange={(e) => onContainer(e.target.value)}
             >
@@ -235,25 +285,63 @@ export default function BatchEditPanel({
               <option value="mov">MOV</option>
               <option value="flv">FLV</option>
               <option value="ts">TS</option>
+              <option value="m4v">M4V</option>
+              <option value="ogv">OGV</option>
+              <option value="wmv">WMV</option>
             </select>
           </label>
           <label className="mb-2 block">
             <span className={labelCls}>音轨提取</span>
             <select
               value={audioOnly}
-              disabled={container !== ""}
+              disabled={container !== "" || coverAt !== ""}
               className={inputCls}
               onChange={(e) => onAudioOnly(e.target.value)}
             >
               <option value="">不提取音轨</option>
               <option value="mp3">提取为 MP3</option>
               <option value="wav">提取为 WAV</option>
+              <option value="m4a">提取为 M4A</option>
+              <option value="flac">提取为 FLAC</option>
+              <option value="ogg">提取为 OGG</option>
             </select>
           </label>
+          <label
+            className={
+              coverAt !== "" ? "mb-2 block" : "pointer-events-none mb-2 block opacity-40"
+            }
+          >
+            <span className={labelCls}>封面时间点（秒）</span>
+            <input
+              type="number"
+              min={0}
+              step={0.5}
+              value={coverAt}
+              disabled={coverAt === ""}
+              className={inputCls}
+              onChange={(e) => onCoverAt(e.target.value)}
+            />
+          </label>
           <p className="text-xs leading-5 text-slate-500">
-            容器转换优先不重编码（秒完成、零画质损失），不兼容时自动回退转码；音轨提取只保留声音、不处理画面。
+            容器转换优先不重编码（秒完成、零画质损失），不兼容时自动回退转码；音轨提取只保留声音；封面抽帧从指定时间点取一帧输出 JPG。
           </p>
         </div>
+      </div>
+
+      {/* ===== 全局 ===== */}
+      <div className="flex items-center justify-between border-t border-slate-200 px-4 py-2.5">
+        <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+          <input
+            type="checkbox"
+            checked={replaceSource}
+            onChange={(e) => onReplaceSource(e.target.checked)}
+            className="h-3.5 w-3.5 accent-blue-600"
+          />
+          输出后替换源文件
+          <span className="text-xs font-normal text-slate-500">
+            （原文件将被输出覆盖，操作不可撤销）
+          </span>
+        </label>
       </div>
     </section>
   );

@@ -66,6 +66,12 @@ export interface CompressItem {
   container?: string;
   /** v0.3.0 音轨提取（mp3/wav） */
   audioOnly?: string;
+  /** v0.4.0 图片转 PDF */
+  pdf?: boolean;
+  /** v0.4.0 视频封面抽帧（时间点秒） */
+  coverAt?: number;
+  /** v0.4.0 输出替换源文件 */
+  replaceSource?: boolean;
 }
 
 export interface CompressRequest {

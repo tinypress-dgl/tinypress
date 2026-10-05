@@ -128,6 +128,9 @@ async fn scan_once(
             image_edit: None,
             container: None,
             audio_only: None,
+            pdf: false,
+            cover_at: None,
+            replace_source: false,
         };
         let job = JobState::new(
             id.clone(),
@@ -162,6 +165,9 @@ async fn scan_once(
             None,
             None,
             None,
+            false,
+            None,
+            false,
             &cancel,
             on_progress,
         )

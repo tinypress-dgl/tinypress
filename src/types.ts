@@ -65,6 +65,9 @@ export interface QueueItem {
     imageEdit?: ImageEditOptions;
     container?: string;
     audioOnly?: string;
+    pdf?: boolean;
+    coverAt?: number;
+    replaceSource?: boolean;
   };
 }
 

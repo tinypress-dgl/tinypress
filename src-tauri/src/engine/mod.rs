@@ -1,5 +1,6 @@
 pub mod edit;
 pub mod image;
+pub mod pdf;
 pub mod queue;
 pub mod video;
 pub mod watch;
@@ -45,6 +46,29 @@ pub fn apply_rename_template(template: &str, name: &str, kind: &str, ext: &str) 
     }
 }
 
+/// 原子替换源文件：同目录直接 rename（原子）；异目录先复制到源目录临时文件再 rename。
+/// 失败时清理临时文件并返回错误信息。
+fn replace_source_file(out: &Path, src: &Path) -> Result<(), String> {
+    if out.parent() == src.parent() {
+        std::fs::rename(out, src).map_err(|e| format!("rename 失败: {e}"))?;
+        return Ok(());
+    }
+    let tmp = src.with_extension(format!(
+        "tmp{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis())
+            .unwrap_or(0)
+    ));
+    std::fs::copy(out, &tmp).map_err(|e| format!("复制输出失败: {e}"))?;
+    if let Err(e) = std::fs::rename(&tmp, src) {
+        let _ = std::fs::remove_file(&tmp);
+        return Err(format!("替换源失败: {e}"));
+    }
+    let _ = std::fs::remove_file(out);
+    Ok(())
+}
+
 /// 输出路径解析：目录取 output_dir（缺省为输入同目录），文件名按模板渲染。
 /// 目标扩展名 ext 始终由预设决定（如 mp4/jpg/webp），模板中的 `{ext}` 只是占位。
 pub fn resolve_output_path(
@@ -73,6 +97,7 @@ pub fn resolve_output_path(
 /// 返回最终 JobState（不写全局 store，由调用方负责入队、进度事件与收尾写入）。
 /// cancel 置位后任务中断（返回 cancelled 语义由调用方处理）。
 /// v0.3.0 扩展：image_edit（图片批量编辑）、container（视频容器转换）、audio_only（音轨提取）。
+/// v0.4.0 扩展：pdf（图片转 PDF）、cover_at（视频封面抽帧）、replace_source（输出替换源文件）。
 pub async fn run_compression(
     mut job: JobState,
     preset: &Preset,
@@ -82,6 +107,9 @@ pub async fn run_compression(
     image_edit: Option<&edit::ImageEditOptions>,
     container: Option<&str>,
     audio_only: Option<&str>,
+    pdf: bool,
+    cover_at: Option<f64>,
+    replace_source: bool,
     cancel: &std::sync::atomic::AtomicBool,
     mut on_progress: impl FnMut(u8),
 ) -> JobState {
@@ -90,23 +118,38 @@ pub async fn run_compression(
     on_progress(5);
 
     let input = PathBuf::from(&job.input_path);
-    // 视频容器白名单（不重编码优先；webm 走 VP9 回退）
+    // 视频容器白名单（不重编码优先；webm 走 VP9 回退）；v0.4.0 扩展 m4v/ogv/wmv
     let container = container
         .map(|c| c.to_ascii_lowercase())
-        .filter(|c| matches!(c.as_str(), "mp4" | "mkv" | "avi" | "webm" | "mov" | "flv" | "ts"))
+        .filter(|c| {
+            matches!(
+                c.as_str(),
+                "mp4" | "mkv" | "avi" | "webm" | "mov" | "flv" | "ts" | "m4v" | "ogv" | "wmv"
+            )
+        })
         .unwrap_or_else(|| "mp4".to_string());
     let (kind, ext) = match preset.kind.as_str() {
         "video" => {
-            let ext = match audio_only {
-                Some("wav") => "wav",
-                Some(_) => "mp3",
-                None => container.as_str(),
-            }
-            .to_string();
+            let ext = if cover_at.is_some() {
+                "jpg".to_string()
+            } else {
+                match audio_only {
+                    Some("wav") => "wav",
+                    Some("m4a") => "m4a",
+                    Some("flac") => "flac",
+                    Some("ogg") => "ogg",
+                    Some(_) => "mp3",
+                    None => container.as_str(),
+                }
+                .to_string()
+            };
             ("video", ext)
         }
         "image" => {
-            let ext = if let Some(ie) = image_edit {
+            let ext = if pdf {
+                // 转 PDF：输出 .pdf
+                "pdf".to_string()
+            } else if let Some(ie) = image_edit {
                 // 图片编辑模式：输出格式跟随编辑参数（缺省保持源扩展名）
                 edit::output_ext(&input, ie.format.as_deref())
             } else {
@@ -146,8 +189,11 @@ pub async fn run_compression(
     let result = match preset.kind.as_str() {
         "video" => {
             if let Some(a) = audio_only {
-                // 音轨提取（mp3/wav）：不转码画面
+                // 音轨提取（mp3/wav/m4a/flac/ogg）：不转码画面
                 video::extract_audio(&input, &output, a, cancel).await
+            } else if let Some(at) = cover_at {
+                // 封面抽帧：取视频指定时间点一帧输出 JPG
+                video::extract_cover(&input, &output, at, cancel).await
             } else if container != "mp4" {
                 // 容器转换：优先 -c copy 不重编码，失败自动回退转码
                 video::remux(&input, &output, &container).await
@@ -187,7 +233,10 @@ pub async fn run_compression(
             }
         }
         "image" => {
-            if let Some(ie) = image_edit {
+            if pdf {
+                // 图片转 PDF：单图单页，JPEG DCTDecode 直嵌
+                pdf::image_to_pdf(&input, &output, &mut on_progress).await
+            } else if let Some(ie) = image_edit {
                 // 图片批量编辑模式（尺寸/旋转/裁剪/水印）：纯编辑，不压缩
                 edit::edit(&input, &output, ie, &mut on_progress).await
             } else {
@@ -203,7 +252,7 @@ pub async fn run_compression(
     };
 
     match result {
-        Ok(out) => {
+        Ok(mut out) => {
             job.status = "done".into();
             job.progress = 100;
             job.output_size = Some(out.output_size);
@@ -220,6 +269,24 @@ pub async fn run_compression(
                 job.warning = Some(format!(
                     "输出为源的 {ratio}%（未变小），源文件可能已是最优压缩；建议改用带体积上限的预设（如「微信朋友圈 ≤25MB」）"
                 ));
+            }
+            // v0.4.0：批量替换源——输出原子替换源文件（同目录 rename；异目录先落源目录临时文件再 rename）
+            if replace_source && !out.skipped {
+                let out_p = out.output_path.clone();
+                if out_p != input {
+                    match replace_source_file(&out_p, &input) {
+                        Ok(()) => {
+                            out.output_path = input.clone();
+                            job.output_path = Some(input.to_string_lossy().into_owned());
+                            job.output_size = Some(
+                                std::fs::metadata(&input).map(|m| m.len()).unwrap_or(0),
+                            );
+                        }
+                        Err(e) => {
+                            job.warning = Some(format!("输出未替换源文件：{e}"));
+                        }
+                    }
+                }
             }
         }
         Err(e) => {
@@ -445,7 +512,7 @@ mod tests {
         };
         let cancel = std::sync::atomic::AtomicBool::new(false);
         let out = run_compression(
-            job, &preset, Some(out_dir), None, None, None, None, None, &cancel, |_| {},
+            job, &preset, Some(out_dir), None, None, None, None, None, false, None, false, &cancel, |_| {},
         )
         .await;
         assert_eq!(out.status, "done", "err={:?}", out.error);
@@ -502,7 +569,7 @@ mod tests {
         };
         let cancel = std::sync::atomic::AtomicBool::new(false);
         let out = run_compression(
-            job, &preset, Some(out_dir), None, None, None, None, None, &cancel, |_| {},
+            job, &preset, Some(out_dir), None, None, None, None, None, false, None, false, &cancel, |_| {},
         )
         .await;
         assert_eq!(out.status, "done", "err={:?}", out.error);
@@ -514,6 +581,85 @@ mod tests {
         println!(
             "[实测] 图片变大 warning 触发: 源 {input_size}B -> {}B",
             out.output_size.unwrap_or(0)
+        );
+    }
+
+    /// 集成实测：替换源——图片压缩 + replace_source=true，源文件被输出原子替换
+    /// （在副本上进行，不污染 corpus）
+    #[tokio::test]
+    #[ignore = "集成实测：需要引擎二进制在 PATH"]
+    async fn replace_source_overwrites_original() {
+        use crate::presets::ImageParams;
+        let src = Path::new(
+            "/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/corpus/photo_dog.jpg",
+        );
+        let work = Path::new(
+            "/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/verify/replace_src_work.jpg",
+        );
+        std::fs::copy(src, work).unwrap();
+        let input_size = std::fs::metadata(work).unwrap().len();
+        let params = JobParams {
+            preset_id: "photo-80".into(),
+            ..Default::default()
+        };
+        let job = JobState::new(
+            "verify-replace-src".into(),
+            work.to_string_lossy().into_owned(),
+            "photo-80".into(),
+            input_size,
+            params,
+        );
+        let preset = Preset {
+            id: "photo-80".into(),
+            name: "通用图片（自由质量）".into(),
+            platform: "generic".into(),
+            kind: "image".into(),
+            tags: vec![],
+            constraints: None,
+            video: None,
+            image: Some(ImageParams {
+                format: "jpeg".into(),
+                engine: "mozjpeg".into(),
+                quality: Some(80),
+                max_size_kb: None,
+                strip_metadata: true,
+            }),
+            filters: None,
+            note: None,
+        };
+        let cancel = std::sync::atomic::AtomicBool::new(false);
+        // 输出目录 None → 与源同目录 → 同目录原子 rename
+        let out = run_compression(
+            job, &preset, None, None, None, None, None, None, false, None, true, &cancel, |_| {},
+        )
+        .await;
+        assert_eq!(out.status, "done", "err={:?}", out.error);
+        // job.output_path 指向源路径（替换语义）
+        assert_eq!(
+            out.output_path.as_deref(),
+            Some(work.to_string_lossy().as_ref()),
+            "替换源后 output_path 应指向源文件"
+        );
+        // 源文件存在且内容已被替换（体积变化；q80 对已压缩图可能膨胀，这里只验证写回）
+        assert!(work.exists(), "源文件应仍存在");
+        let new_size = std::fs::metadata(work).unwrap().len();
+        assert!(new_size > 0);
+        // 无残留「.image.jpg」中间输出
+        let leftovers: Vec<_> = work
+            .parent()
+            .unwrap()
+            .read_dir()
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .filter(|e| {
+                let n = e.file_name().to_string_lossy().into_owned();
+                n.contains("replace_src_work.image")
+            })
+            .collect();
+        assert!(leftovers.is_empty(), "不应残留中间输出: {leftovers:?}");
+        println!(
+            "[实测] 替换源: {}B -> {}B（已覆盖源文件，无残留）",
+            input_size, new_size
         );
     }
 }

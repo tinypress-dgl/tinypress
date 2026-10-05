@@ -391,4 +391,41 @@ mod tests {
         assert_eq!(output_ext(&corpus("a.JPG"), None), "jpg");
         assert_eq!(output_ext(&corpus("a.png"), Some("webp")), "webp");
     }
+
+    /// 集成实测：v0.4.0 格式扩展——同一图经编辑模式转 tiff / gif / jp2，
+    /// 断言输出存在且魔数正确（tiff=II*\0、gif=GIF8、jp2=jP ）
+    #[tokio::test]
+    #[ignore = "集成实测：需要 ffmpeg 在 PATH"]
+    async fn format_extension_tiff_gif_jp2() {
+        let input = corpus("photo_dog.jpg");
+        assert!(input.exists(), "缺少素材 {}", input.display());
+        let cases: Vec<(&str, Vec<u8>)> = vec![
+            ("tiff", vec![0x49, 0x49, 0x2A, 0x00]),
+            ("gif", b"GIF8".to_vec()),
+            ("jp2", vec![0x00, 0x00, 0x00, 0x0C, 0x6A, 0x50, 0x20, 0x20]),
+        ];
+        for (fmt, magic) in cases {
+            let out = verify_dir().join(format!("out_fmt.{fmt}"));
+            let _ = std::fs::remove_file(&out);
+            let opt = ImageEditOptions {
+                scale_percent: Some(50.0),
+                format: Some(fmt.into()),
+                ..Default::default()
+            };
+            let r = edit(&input, &out, &opt, |_| {})
+                .await
+                .unwrap_or_else(|e| panic!("格式 {fmt} 转换失败: {e}"));
+            assert!(r.output_path.exists(), "{fmt} 未生成");
+            let head = std::fs::read(&out).unwrap();
+            assert!(
+                head.starts_with(&magic),
+                "{fmt} 魔数错误: {:02X?}",
+                &head[..magic.len().min(head.len())]
+            );
+            println!(
+                "[实测] 格式扩展: jpg -> {fmt} ({}B)",
+                r.output_size
+            );
+        }
+    }
 }

@@ -620,6 +620,53 @@ pub async fn compress_to_size(
     }
 }
 
+/// 封面抽帧：从视频指定时间点取一帧输出 JPG（默认 1s，clamp ≥0）。
+/// WPS「视频工具箱」封面功能对齐；ffmpeg -ss 快速定位 + 单帧输出。
+pub async fn extract_cover(
+    input: &Path,
+    output: &Path,
+    at_secs: f64,
+    _cancel: &std::sync::atomic::AtomicBool,
+) -> Result<Output, String> {
+    let locator = BinaryLocator;
+    let ffmpeg = locator
+        .find("ffmpeg")
+        .ok_or_else(|| "未找到 ffmpeg 二进制".to_string())?;
+    let input_s = input.to_str().ok_or("路径非法")?;
+    let output_s = output.to_str().ok_or("路径非法")?;
+    let at = at_secs.max(0.0);
+    let st = Command::new(&ffmpeg)
+        .args([
+            "-y",
+            "-ss",
+            &at.to_string(),
+            "-i",
+            input_s,
+            "-frames:v",
+            "1",
+            "-q:v",
+            "3",
+            "-map",
+            "0:v:0",
+            output_s,
+        ])
+        .stderr(Stdio::null())
+        .status()
+        .await
+        .map_err(|e| format!("启动 ffmpeg 失败: {e}"))?;
+    if !st.success() {
+        return Err(format!("封面抽帧退出码: {:?}", st.code()));
+    }
+    let size = std::fs::metadata(output)
+        .map_err(|e| format!("读取输出失败: {e}"))?
+        .len();
+    Ok(Output {
+        output_path: output.to_path_buf(),
+        output_size: size,
+        skipped: false,
+    })
+}
+
 /// 容器转换（不重编码优先）：目标容器 mkv/avi/webm/mov/flv/ts。
 /// 先试 `-c copy`（秒完成、零画质损失），容器/编码不兼容时自动回退转码。
 pub async fn remux(input: &Path, output: &Path, container: &str) -> Result<Output, String> {
@@ -709,10 +756,12 @@ pub async fn extract_audio(
         }
     }
 
-    let codec_args: Vec<String> = if kind == "wav" {
-        vec!["-c:a".into(), "pcm_s16le".into()]
-    } else {
-        vec!["-c:a".into(), "libmp3lame".into(), "-q:a".into(), "4".into()]
+    let codec_args: Vec<String> = match kind {
+        "wav" => vec!["-c:a".into(), "pcm_s16le".into()],
+        "m4a" => vec!["-c:a".into(), "aac".into(), "-b:a".into(), "192k".into()],
+        "flac" => vec!["-c:a".into(), "flac".into()],
+        "ogg" => vec!["-c:a".into(), "libvorbis".into(), "-q:a".into(), "4".into()],
+        _ => vec!["-c:a".into(), "libmp3lame".into(), "-q:a".into(), "4".into()],
     };
     let mut args = vec![
         "-y".into(),
@@ -1088,6 +1137,37 @@ mod tests {
         );
         println!(
             "[实测] 音轨提取: mp4 -> mp3 源 {src}B 输出 {}B",
+            r.output_size
+        );
+    }
+
+    /// 集成实测：封面抽帧——1s 处取帧输出 JPG，断言存在且为 JPEG 魔数
+    #[tokio::test]
+    #[ignore = "集成实测：需要 ffmpeg 在 PATH"]
+    async fn extract_cover_from_video() {
+        let input = Path::new(
+            "/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/corpus/vid_bbb_1080p10s.mp4",
+        );
+        assert!(input.exists(), "缺少素材 {}", input.display());
+        let out = Path::new(
+            "/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/verify/out_cover.jpg",
+        );
+        let _ = std::fs::remove_file(out);
+        let cancel = std::sync::atomic::AtomicBool::new(false);
+        let r = extract_cover(input, out, 1.0, &cancel)
+            .await
+            .unwrap_or_else(|e| panic!("封面抽帧失败: {e}"));
+        assert!(r.output_path.exists());
+        let head = std::fs::read(out).unwrap();
+        assert!(
+            head.starts_with(&[0xFF, 0xD8]),
+            "封面应为 JPEG，魔数 {:02X?}",
+            &head[..2.min(head.len())]
+        );
+        println!(
+            "[实测] 封面抽帧: {} -> {} ({}B)",
+            input.display(),
+            r.output_path.display(),
             r.output_size
         );
     }

@@ -68,6 +68,10 @@ export default function App() {
   const [imageEdit, setImageEdit] = useState<ImageEditOptions | null>(null);
   const [videoContainer, setVideoContainer] = useState("");
   const [audioOnly, setAudioOnly] = useState("");
+  // v0.4.0：图片转 PDF / 视频封面抽帧 / 替换源
+  const [pdfMode, setPdfMode] = useState(false);
+  const [coverAt, setCoverAt] = useState("");
+  const [replaceSource, setReplaceSource] = useState(false);
   // 文件夹监控
   const [watchDir, setWatchDir] = useState("");
   const [watchPreset, setWatchPreset] = useState("");
@@ -215,6 +219,7 @@ export default function App() {
         items: pending.map((it) => {
           const isVideo =
             presets.find((p) => p.id === it.presetId)?.kind === "video";
+          const coverNum = coverAt.trim() === "" ? undefined : Number(coverAt);
           return {
             inputPath: it.inputPath,
             presetId: it.presetId,
@@ -223,12 +228,22 @@ export default function App() {
             rename: it.params?.rename ?? (renameTemplate.trim() || undefined),
             edit: it.edit ?? it.params?.edit,
             // v0.3.0：图片任务挂图片批量编辑；视频任务挂容器转换/音轨提取
+            // v0.4.0：pdf 与 imageEdit 互斥（pdf 优先）；coverAt 与 container/audioOnly 互斥
             imageEdit:
-              !isVideo && imageEdit && !imageEditEmpty
+              !isVideo && imageEdit && !imageEditEmpty && !pdfMode
                 ? imageEdit
                 : undefined,
-            container: isVideo && videoContainer ? videoContainer : undefined,
-            audioOnly: isVideo && audioOnly ? audioOnly : undefined,
+            container:
+              isVideo && videoContainer && coverNum === undefined
+                ? videoContainer
+                : undefined,
+            audioOnly:
+              isVideo && audioOnly && coverNum === undefined
+                ? audioOnly
+                : undefined,
+            pdf: !isVideo && pdfMode ? true : undefined,
+            coverAt: isVideo && coverNum !== undefined ? coverNum : undefined,
+            replaceSource: replaceSource ? true : undefined,
           };
         }),
       });
@@ -380,6 +395,12 @@ export default function App() {
             onContainer={setVideoContainer}
             audioOnly={audioOnly}
             onAudioOnly={setAudioOnly}
+            pdfMode={pdfMode}
+            onPdfMode={setPdfMode}
+            coverAt={coverAt}
+            onCoverAt={setCoverAt}
+            replaceSource={replaceSource}
+            onReplaceSource={setReplaceSource}
           />
         </div>
 

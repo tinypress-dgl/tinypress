@@ -127,6 +127,15 @@ pub struct CompressItem {
     /// v0.3.0：音轨提取（mp3/wav）
     #[serde(default)]
     pub audio_only: Option<String>,
+    /// v0.4.0：图片转 PDF
+    #[serde(default)]
+    pub pdf: bool,
+    /// v0.4.0：视频封面抽帧（时间点秒）
+    #[serde(default)]
+    pub cover_at: Option<f64>,
+    /// v0.4.0：输出替换源文件
+    #[serde(default)]
+    pub replace_source: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -298,6 +307,9 @@ pub fn compress_files(
             image_edit: item.image_edit.clone(),
             container: item.container.clone(),
             audio_only: item.audio_only.clone(),
+            pdf: item.pdf,
+            cover_at: item.cover_at,
+            replace_source: item.replace_source,
         };
         let job = JobState::new(
             id.clone(),
@@ -322,6 +334,9 @@ pub fn compress_files(
         let image_edit = item.image_edit.clone();
         let container = item.container.clone();
         let audio_only = item.audio_only.clone();
+        let pdf = item.pdf;
+        let cover_at = item.cover_at;
+        let replace_source = item.replace_source;
         tokio::spawn(async move {
             // 并发上限：acquire 到许可才开始执行（队列中等待的任务保持 queued）
             let Ok(permit) = sem.acquire_owned().await else {
@@ -338,6 +353,9 @@ pub fn compress_files(
                 image_edit,
                 container,
                 audio_only,
+                pdf,
+                cover_at,
+                replace_source,
                 cancel,
                 permit,
                 cancels_inner,
@@ -361,6 +379,9 @@ async fn run_job(
     image_edit: Option<crate::engine::edit::ImageEditOptions>,
     container: Option<String>,
     audio_only: Option<String>,
+    pdf: bool,
+    cover_at: Option<f64>,
+    replace_source: bool,
     cancel: Arc<AtomicBool>,
     permit: tokio::sync::OwnedSemaphorePermit,
     cancels: Arc<Mutex<HashMap<String, Arc<AtomicBool>>>>,
@@ -422,6 +443,9 @@ async fn run_job(
         image_edit.as_ref(),
         container.as_deref(),
         audio_only.as_deref(),
+        pdf,
+        cover_at,
+        replace_source,
         &cancel,
         on_progress,
     )
@@ -485,7 +509,8 @@ pub async fn retry_job(
     id: String,
 ) -> Result<(), String> {
     let store = state.inner().clone();
-    let (job, preset, out_dir, rename, edit, image_edit, container, audio_only) = {
+    let (job, preset, out_dir, rename, edit, image_edit, container, audio_only, pdf, cover_at, replace_source) =
+    {
         let guard = store.0.lock().unwrap();
         let job = guard
             .iter()
@@ -512,6 +537,9 @@ pub async fn retry_job(
             params.image_edit,
             params.container,
             params.audio_only,
+            params.pdf,
+            params.cover_at,
+            params.replace_source,
         )
     };
     {
@@ -535,7 +563,7 @@ pub async fn retry_job(
         };
         run_job(
             app2, store2, job, preset, out_dir, rename, edit, image_edit, container, audio_only,
-            cancel, permit, cancels_inner,
+            pdf, cover_at, replace_source, cancel, permit, cancels_inner,
         )
         .await;
     });
