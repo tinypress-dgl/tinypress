@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import BatchEditPanel from "./components/BatchEditPanel";
 import CompareView from "./components/CompareView";
 import AddFilesPanel from "./components/AddFilesPanel";
 import CustomPresetEditor from "./components/CustomPresetEditor";
@@ -23,7 +24,13 @@ import {
   startWatch,
   stopWatch,
 } from "./api";
-import type { EditOptions, EngineInfo, Preset, QueueItem } from "./types";
+import type {
+  EditOptions,
+  EngineInfo,
+  ImageEditOptions,
+  Preset,
+  QueueItem,
+} from "./types";
 
 let idSeq = 0;
 
@@ -57,6 +64,10 @@ export default function App() {
   // 输出设置
   const [outputDir, setOutputDir] = useState("");
   const [renameTemplate, setRenameTemplate] = useState("");
+  // v0.3.0 批处理状态（面板开关；作用于队列中全部同类型任务）
+  const [imageEdit, setImageEdit] = useState<ImageEditOptions | null>(null);
+  const [videoContainer, setVideoContainer] = useState("");
+  const [audioOnly, setAudioOnly] = useState("");
   // 文件夹监控
   const [watchDir, setWatchDir] = useState("");
   const [watchPreset, setWatchPreset] = useState("");
@@ -179,6 +190,20 @@ export default function App() {
     setQueue((q) => [...items, ...q]);
   };
 
+  /** 图片编辑参数是否全空（全空时不下发，避免无意义复制） */
+  const imageEditEmpty = useMemo(() => {
+    if (!imageEdit) return true;
+    return (
+      imageEdit.scalePercent === undefined &&
+      imageEdit.width === undefined &&
+      imageEdit.height === undefined &&
+      imageEdit.rotate === undefined &&
+      imageEdit.cropPercent === undefined &&
+      !imageEdit.watermarkText &&
+      !imageEdit.watermarkImage
+    );
+  }, [imageEdit]);
+
   /** 提交前把编辑选项合并进 compress 请求；
    *  恢复的任务（params）沿用持久化参数，提交成功后移除旧 queued 记录 */
   const handleCompressClick = async () => {
@@ -187,13 +212,25 @@ export default function App() {
     const pendingIds = new Set(pending.map((x) => x.id));
     try {
       const snapshot = await compressFiles({
-        items: pending.map((it) => ({
-          inputPath: it.inputPath,
-          presetId: it.presetId,
-          outputDir: it.params?.outputDir ?? (outputDir.trim() || undefined),
-          rename: it.params?.rename ?? (renameTemplate.trim() || undefined),
-          edit: it.edit ?? it.params?.edit,
-        })),
+        items: pending.map((it) => {
+          const isVideo =
+            presets.find((p) => p.id === it.presetId)?.kind === "video";
+          return {
+            inputPath: it.inputPath,
+            presetId: it.presetId,
+            outputDir:
+              it.params?.outputDir ?? (outputDir.trim() || undefined),
+            rename: it.params?.rename ?? (renameTemplate.trim() || undefined),
+            edit: it.edit ?? it.params?.edit,
+            // v0.3.0：图片任务挂图片批量编辑；视频任务挂容器转换/音轨提取
+            imageEdit:
+              !isVideo && imageEdit && !imageEditEmpty
+                ? imageEdit
+                : undefined,
+            container: isVideo && videoContainer ? videoContainer : undefined,
+            audioOnly: isVideo && audioOnly ? audioOnly : undefined,
+          };
+        }),
       });
       setQueue((q) => [
         ...snapshot.map((s) => ({
@@ -334,6 +371,17 @@ export default function App() {
             )
           }
         />
+
+        <div className="space-y-3 p-4">
+          <BatchEditPanel
+            imageEdit={imageEdit}
+            onImageEdit={setImageEdit}
+            container={videoContainer}
+            onContainer={setVideoContainer}
+            audioOnly={audioOnly}
+            onAudioOnly={setAudioOnly}
+          />
+        </div>
 
         <div className="space-y-3 p-4">
           <DropZone onFiles={handleFiles} />

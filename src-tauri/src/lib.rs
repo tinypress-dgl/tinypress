@@ -66,6 +66,7 @@ pub fn run() {
             commands::check_update,
             commands::pick_output_dir,
             commands::pick_input_files,
+            commands::pick_watermark_image,
             commands::resolve_input_paths,
             commands::file_to_data_url
         ])

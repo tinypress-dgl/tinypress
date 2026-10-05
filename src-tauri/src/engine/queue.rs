@@ -13,6 +13,15 @@ pub struct JobParams {
     pub rename: Option<String>,
     #[serde(default)]
     pub edit: Option<crate::engine::video::EditOptions>,
+    /// v0.3.0：图片批量编辑（尺寸/旋转/裁剪/水印）
+    #[serde(default)]
+    pub image_edit: Option<crate::engine::edit::ImageEditOptions>,
+    /// v0.3.0：视频容器转换目标（mkv/avi/webm/mov/...）
+    #[serde(default)]
+    pub container: Option<String>,
+    /// v0.3.0：音轨提取（mp3/wav）
+    #[serde(default)]
+    pub audio_only: Option<String>,
 }
 
 /// 单个压缩任务的状态快照（与前端 types.ts 对齐，camelCase）

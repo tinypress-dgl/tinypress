@@ -118,6 +118,15 @@ pub struct CompressItem {
     /// 基础编辑选项（截取/旋转/去黑边/裁剪），可空
     #[serde(default)]
     pub edit: Option<crate::engine::video::EditOptions>,
+    /// v0.3.0：图片批量编辑（尺寸/旋转/裁剪/水印）
+    #[serde(default)]
+    pub image_edit: Option<crate::engine::edit::ImageEditOptions>,
+    /// v0.3.0：视频容器转换目标（mkv/avi/webm/mov/flv/ts，缺省 mp4）
+    #[serde(default)]
+    pub container: Option<String>,
+    /// v0.3.0：音轨提取（mp3/wav）
+    #[serde(default)]
+    pub audio_only: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -286,6 +295,9 @@ pub fn compress_files(
             output_dir: item.output_dir.clone(),
             rename: item.rename.clone(),
             edit: item.edit.clone(),
+            image_edit: item.image_edit.clone(),
+            container: item.container.clone(),
+            audio_only: item.audio_only.clone(),
         };
         let job = JobState::new(
             id.clone(),
@@ -307,13 +319,28 @@ pub fn compress_files(
         let out_dir = item.output_dir.clone().map(PathBuf::from);
         let rename = item.rename.clone();
         let edit = item.edit.clone();
+        let image_edit = item.image_edit.clone();
+        let container = item.container.clone();
+        let audio_only = item.audio_only.clone();
         tokio::spawn(async move {
             // 并发上限：acquire 到许可才开始执行（队列中等待的任务保持 queued）
             let Ok(permit) = sem.acquire_owned().await else {
                 return;
             };
             run_job(
-                app2, store, job, preset, out_dir, rename, edit, cancel, permit, cancels_inner,
+                app2,
+                store,
+                job,
+                preset,
+                out_dir,
+                rename,
+                edit,
+                image_edit,
+                container,
+                audio_only,
+                cancel,
+                permit,
+                cancels_inner,
             )
             .await;
         });
@@ -331,6 +358,9 @@ async fn run_job(
     out_dir: Option<PathBuf>,
     rename: Option<String>,
     edit: Option<crate::engine::video::EditOptions>,
+    image_edit: Option<crate::engine::edit::ImageEditOptions>,
+    container: Option<String>,
+    audio_only: Option<String>,
     cancel: Arc<AtomicBool>,
     permit: tokio::sync::OwnedSemaphorePermit,
     cancels: Arc<Mutex<HashMap<String, Arc<AtomicBool>>>>,
@@ -389,6 +419,9 @@ async fn run_job(
         out_dir.as_deref(),
         rename.as_deref(),
         edit.as_ref(),
+        image_edit.as_ref(),
+        container.as_deref(),
+        audio_only.as_deref(),
         &cancel,
         on_progress,
     )
@@ -452,7 +485,7 @@ pub async fn retry_job(
     id: String,
 ) -> Result<(), String> {
     let store = state.inner().clone();
-    let (job, preset, out_dir, rename, edit) = {
+    let (job, preset, out_dir, rename, edit, image_edit, container, audio_only) = {
         let guard = store.0.lock().unwrap();
         let job = guard
             .iter()
@@ -470,7 +503,16 @@ pub async fn retry_job(
             .into_iter()
             .find(|p| p.id == params.preset_id)
             .ok_or_else(|| "预设不存在或已被删除".to_string())?;
-        (job, preset, params.output_dir.map(PathBuf::from), params.rename, params.edit)
+        (
+            job,
+            preset,
+            params.output_dir.map(PathBuf::from),
+            params.rename,
+            params.edit,
+            params.image_edit,
+            params.container,
+            params.audio_only,
+        )
     };
     {
         let mut guard = store.0.lock().unwrap();
@@ -492,7 +534,8 @@ pub async fn retry_job(
             return;
         };
         run_job(
-            app2, store2, job, preset, out_dir, rename, edit, cancel, permit, cancels_inner,
+            app2, store2, job, preset, out_dir, rename, edit, image_edit, container, audio_only,
+            cancel, permit, cancels_inner,
         )
         .await;
     });
@@ -669,6 +712,16 @@ pub fn pick_input_files() -> Option<Vec<String>> {
                 .map(|f| f.to_string_lossy().to_string())
                 .collect()
         })
+}
+
+/// 原生单选对话框（水印图片），返回单个路径或 None
+#[tauri::command]
+pub fn pick_watermark_image() -> Option<String> {
+    rfd::FileDialog::new()
+        .set_title("选择水印图片")
+        .add_filter("水印图片", &["png", "jpg", "jpeg", "webp", "bmp"])
+        .pick_file()
+        .map(|f| f.to_string_lossy().to_string())
 }
 
 /// 将用户输入的路径（文件或文件夹，多个可混排）解析为真实文件列表：

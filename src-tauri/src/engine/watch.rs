@@ -125,6 +125,9 @@ async fn scan_once(
             output_dir: opts.output_dir.clone(),
             rename: opts.rename.clone(),
             edit: None,
+            image_edit: None,
+            container: None,
+            audio_only: None,
         };
         let job = JobState::new(
             id.clone(),
@@ -155,6 +158,9 @@ async fn scan_once(
             preset,
             out_dir.as_deref(),
             opts.rename.as_deref(),
+            None,
+            None,
+            None,
             None,
             &cancel,
             on_progress,

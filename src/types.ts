@@ -55,11 +55,16 @@ export interface QueueItem {
   warning?: string;
   /** 任务级编辑选项（截取/旋转/去黑边/裁剪） */
   edit?: EditOptions;
+  /** v0.3.0 图片批量编辑（尺寸/旋转/裁剪/水印） */
+  imageEdit?: ImageEditOptions;
   /** 重跑参数（持久化恢复用；前端「开始压缩」时回填） */
   params?: {
     outputDir?: string;
     rename?: string;
     edit?: EditOptions;
+    imageEdit?: ImageEditOptions;
+    container?: string;
+    audioOnly?: string;
   };
 }
 
@@ -94,4 +99,20 @@ export interface EditOptions {
   rotate?: number; // 0/90/180/270 顺时针
   autocrop?: boolean; // 自动去黑边
   cropPercent?: number; // 居中裁剪百分比 0-100
+}
+
+/** v0.3.0 图片批量编辑选项（尺寸/旋转/裁剪/水印，任务级，全部可选） */
+export interface ImageEditOptions {
+  scalePercent?: number; // 缩放百分比 0-1000（优先于宽高）
+  width?: number; // 目标宽度 px
+  height?: number; // 目标高度 px
+  rotate?: number; // 旋转角度（顺时针）
+  cropPercent?: number; // 居中裁剪百分比 0-100
+  watermarkText?: string; // 文字水印内容
+  watermarkImage?: string; // 水印图片路径
+  watermarkSize?: number; // 水印字号/宽度 px
+  watermarkOpacity?: number; // 透明度 0-1
+  watermarkPosition?: string; // tl/tc/tr/ml/mc/mr/bl/bc/br
+  watermarkRotate?: number; // 图片水印旋转 0/90/180/270
+  format?: string; // jpg/png/webp/bmp/avif；缺省保持源格式
 }

@@ -22,6 +22,16 @@ pub async fn compress(
     if let Some(max_kb) = img.max_size_kb {
         // 目标大小模式：二分质量，最大 7 轮
         let max_bytes = max_kb * 1024;
+        // 源已达标：不重编码（避免「越压越大」+ 白损失质量），直接返回源
+        let src_size = std::fs::metadata(input).map(|m| m.len()).unwrap_or(0);
+        if src_size > 0 && src_size <= max_bytes {
+            on_progress(100);
+            return Ok(Output {
+                output_path: input.to_path_buf(),
+                output_size: src_size,
+                skipped: true,
+            });
+        }
         let mut lo: u8 = 10;
         let mut hi: u8 = 95;
         let mut best: Option<Output> = None;
@@ -79,6 +89,7 @@ async fn finish(output: &Path) -> Result<Output, String> {
     Ok(Output {
         output_path: output.to_path_buf(),
         output_size: size,
+        skipped: false,
     })
 }
 
@@ -335,5 +346,128 @@ mod tests {
             "q80={s_hi}B 应大于 q10={s_lo}B（qscale 映射失效）"
         );
         println!("[实测] AVIF qscale 映射: q80={}B q10={}B", s_hi, s_lo);
+    }
+
+    /// 集成实测：图片目标大小二分——新内置预设 webp-300k（≤300KB）与 avif-500k（≤500KB）
+    /// 必须把源压进体积上限（compress 的 max_size_kb 二分路径，7 轮质量逼近）
+    #[tokio::test]
+    #[ignore = "集成实测：需要引擎二进制在 PATH"]
+    async fn image_target_size_bisect_reaches_limit() {
+        let river = corpus("photo_river.jpg");
+        let dog = corpus("photo_dog.jpg");
+        assert!(river.exists() && dog.exists());
+        let out_webp = verify_dir().join("out_webp300.webp");
+        let out_avif = verify_dir().join("out_avif500.avif");
+        let _ = std::fs::remove_file(&out_webp);
+        let _ = std::fs::remove_file(&out_avif);
+
+        let webp300 = ImageParams {
+            format: "webp".into(),
+            engine: "libwebp".into(),
+            quality: Some(80),
+            max_size_kb: Some(300),
+            strip_metadata: true,
+        };
+        let r_webp = compress(&river, &out_webp, &webp300, |_| {})
+            .await
+            .unwrap_or_else(|e| panic!("webp 300KB 失败: {e}"));
+        assert!(
+            r_webp.output_size <= 300 * 1024,
+            "webp 输出 {} 超出 300KB",
+            r_webp.output_size
+        );
+
+        let avif500 = ImageParams {
+            format: "avif".into(),
+            engine: "libavif".into(),
+            quality: Some(75),
+            max_size_kb: Some(500),
+            strip_metadata: true,
+        };
+        let r_avif = compress(&dog, &out_avif, &avif500, |_| {})
+            .await
+            .unwrap_or_else(|e| panic!("avif 500KB 失败: {e}"));
+        assert!(
+            r_avif.output_size <= 500 * 1024,
+            "avif 输出 {} 超出 500KB",
+            r_avif.output_size
+        );
+        let s_river = std::fs::metadata(&river).unwrap().len();
+        let s_dog = std::fs::metadata(&dog).unwrap().len();
+        println!(
+            "[实测] 图片目标大小: webp300 源{} ({}B) -> {}B ({:.1}%); avif500 源{} ({}B) -> {}B ({:.1}%)",
+            river.display(),
+            s_river,
+            r_webp.output_size,
+            r_webp.output_size as f64 / s_river as f64 * 100.0,
+            dog.display(),
+            s_dog,
+            r_avif.output_size,
+            r_avif.output_size as f64 / s_dog as f64 * 100.0,
+        );
+    }
+
+    /// 集成实测：引擎体积矩阵——dog/river 两图 × mozjpeg q80 / libwebp q75 / avif q75
+    /// 打印 CSV（配合 ffmpeg PSNR/SSIM 做质量评估）
+    #[tokio::test]
+    #[ignore = "集成实测：需要引擎二进制在 PATH"]
+    async fn image_engine_matrix_output_sizes() {
+        let cases: Vec<(&str, PathBuf)> = vec![
+            ("dog", corpus("photo_dog.jpg")),
+            ("river", corpus("photo_river.jpg")),
+        ];
+        for (name, input) in cases {
+            assert!(input.exists(), "缺少素材 {}", input.display());
+            let src = std::fs::metadata(&input).unwrap().len();
+            let matrix = [
+                (
+                    "mozjpeg-q80",
+                    ImageParams {
+                        format: "jpeg".into(),
+                        engine: "mozjpeg".into(),
+                        quality: Some(80),
+                        max_size_kb: None,
+                        strip_metadata: true,
+                    },
+                ),
+                (
+                    "libwebp-q75",
+                    ImageParams {
+                        format: "webp".into(),
+                        engine: "libwebp".into(),
+                        quality: Some(75),
+                        max_size_kb: None,
+                        strip_metadata: true,
+                    },
+                ),
+                (
+                    "libavif-q75",
+                    ImageParams {
+                        format: "avif".into(),
+                        engine: "libavif".into(),
+                        quality: Some(75),
+                        max_size_kb: None,
+                        strip_metadata: true,
+                    },
+                ),
+            ];
+            for (tag, img) in matrix {
+                let ext = match img.format.as_str() {
+                    "jpeg" => "jpg",
+                    "webp" => "webp",
+                    _ => "avif",
+                };
+                let out = verify_dir().join(format!("matrix_{name}_{tag}.{ext}"));
+                let _ = std::fs::remove_file(&out);
+                let r = compress(&input, &out, &img, |_| {})
+                    .await
+                    .unwrap_or_else(|e| panic!("{name} {tag} 失败: {e}"));
+                println!(
+                    "[矩阵] {name},{tag},src={src}B,out={}B,ratio={:.1}%",
+                    r.output_size,
+                    r.output_size as f64 / src as f64 * 100.0
+                );
+            }
+        }
     }
 }

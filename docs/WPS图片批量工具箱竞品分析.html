@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WPS 图片批量处理工具箱竞品分析报告</title>
+<style>
+  :root {
+    --ink: #1c2733; --muted: #5a6b7b; --line: #e3e9f0;
+    --brand: #d93a2b; --brand-soft: #fdeeec;
+    --acc: #0e7a5f; --acc-soft: #e7f5f0;
+    --warn: #b7791f; --warn-soft: #fdf3e3;
+    --bg: #f7f9fb; --card: #ffffff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif; background: var(--bg); color: var(--ink); line-height: 1.65; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 24px 64px; }
+  header.hero { background: linear-gradient(135deg, #2a3644 0%, #1c2733 100%); color: #fff; border-radius: 16px; padding: 36px 40px; margin-bottom: 28px; }
+  header.hero h1 { font-size: 26px; font-weight: 700; letter-spacing: .5px; }
+  header.hero .sub { margin-top: 10px; color: #c8d3de; font-size: 14px; }
+  header.hero .meta { margin-top: 16px; display: flex; gap: 18px; flex-wrap: wrap; font-size: 12.5px; color: #9fb0c0; }
+  header.hero .meta b { color: #ffd9d2; font-weight: 600; }
+  h2 { font-size: 20px; margin: 36px 0 14px; padding-left: 12px; border-left: 4px solid var(--brand); }
+  h3 { font-size: 16px; margin: 20px 0 10px; color: #2a3644; }
+  p { margin: 8px 0; font-size: 14.5px; color: #33404d; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px; margin: 14px 0; box-shadow: 0 1px 2px rgba(28,39,51,.04); }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 10px 0; }
+  th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { background: #f0f4f8; font-weight: 600; color: #2a3644; white-space: nowrap; }
+  td.center, th.center { text-align: center; }
+  .tag { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; font-weight: 600; }
+  .tag.yes { background: var(--acc-soft); color: var(--acc); }
+  .tag.no { background: var(--warn-soft); color: var(--warn); }
+  .tag.pay { background: var(--brand-soft); color: var(--brand); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } .wrap { padding: 16px 12px 48px; } header.hero { padding: 24px; } }
+  .kpi { display: flex; gap: 14px; flex-wrap: wrap; margin: 12px 0; }
+  .kpi .box { flex: 1; min-width: 150px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .kpi .box .num { font-size: 22px; font-weight: 700; color: var(--brand); }
+  .kpi .box .lbl { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+  .note { font-size: 12.5px; color: var(--muted); background: #f3f6fa; border-radius: 8px; padding: 8px 12px; margin: 10px 0; }
+  .src { font-size: 12px; color: var(--muted); word-break: break-all; }
+  .src li { margin: 3px 0; }
+  .chart-box { width: 100%; height: 380px; }
+  .chart-box.small { height: 300px; }
+  .divider { border-top: 1px dashed var(--line); margin: 26px 0; }
+  ul.tick { padding-left: 20px; margin: 8px 0; font-size: 14px; color: #33404d; }
+  ul.tick li { margin: 5px 0; }
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0; font-size: 13px; }
+  .flow .step { background: #eef2f7; border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; }
+  .flow .arrow { color: var(--brand); font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <h1>WPS 图片批量处理工具箱 · 竞品分析报告</h1>
+  <div class="sub">会员专属功能组件「图片批量处理 + 视频工具箱」——功能拆解、压缩技术、商业逻辑与 TinyPress 差距清单</div>
+  <div class="meta"><span>分析基准：<b>2026-10</b></span><span>信息性质：<b>公开资料（官方帮助/会员官网/评测），不含逆向</b></span><span>目标：<b>补齐 TinyPress 功能差距</b></span></div>
+</header>
+
+<h2>一、组件是什么</h2>
+<p>WPS 在「WPS 图片」应用与右键菜单中提供<b>图片批量处理</b>组件，属于超级会员 / 图片套餐权益。入口有三条：打开图片后进入应用中心「批量处理」；右键图片选择「图片批量处理」；WPS 365 企业版集成到 OA/知识库上传链路。它把办公高频的图片杂活（压缩、改尺寸、转格式、重命名、加水印、抠图）做成批量、可设定目标参数的流水线。同族还有<b>视频工具箱</b>（视频批量压缩/转换/录制/剪辑，会员权益）——一并纳入本文对照。</p>
+
+<div class="kpi">
+  <div class="box"><div class="num">8+</div><div class="lbl">批量编辑核心能力</div></div>
+  <div class="box"><div class="num">-89.8%</div><div class="lbl">均衡压缩实测（2.45MB→256KB）</div></div>
+  <div class="box"><div class="num">100+ 张</div><div class="lbl">单次批量处理上限（企业版）</div></div>
+  <div class="box"><div class="num">50MB</div><div class="lbl">单张最大原图（企业版）</div></div>
+</div>
+
+<h2>二、功能矩阵（批量处理工具箱）</h2>
+<table>
+  <thead><tr><th>能力</th><th>说明</th><th>关键参数 / 格式</th><th>会员</th></tr></thead>
+  <tbody>
+    <tr><td><b>批量压缩</b></td><td>三种模式：按程度压缩（轻度/均衡/强）、自定义体积（精确到 KB/MB）、AI 压缩（内容感知分区）</td><td>实测均衡模式 2.45MB→256.09KB（-89.8%）；自定义体积如 80KB/200KB 自动逼近；保存 JPG/PNG</td><td><span class="tag pay">会员</span></td></tr>
+    <tr><td><b>批量格式转换</b></td><td>多图一键转目标格式</td><td>JPG / BMP / PNG / XBM / XPM</td><td><span class="tag pay">会员</span></td></tr>
+    <tr><td><b>批量修改尺寸</b></td><td>统一改宽高/比例</td><td>支持普通品质与高质量</td><td><span class="tag pay">会员</span></td></tr>
+    <tr><td><b>批量重命名</b></td><td>按规则批量改名</td><td>添加图片→规则→执行</td><td><span class="tag pay">会员</span></td></tr>
+    <tr><td><b>批量旋转 / 裁剪</b></td><td>方向修正与内容裁剪</td><td>旋转角度、裁剪区域</td><td><span class="tag pay">会员</span></td></tr>
+    <tr><td><b>批量加水印</b></td><td>文字/签名/图片水印</td><td>大小、旋转角度、透明度、位置均可调；保存 JPG/BMP/PNG</td><td><span class="tag pay">会员</span></td></tr>
+    <tr><td><b>批量抠图</b></td><td>自动去除背景（AI）</td><td>导出透明底 PNG</td><td><span class="tag pay">会员</span></td></tr>
+    <tr><td><b>图片转 PDF</b></td><td>多图合并导出 PDF</td><td>自定义排序、合并输出</td><td><span class="tag pay">会员</span></td></tr>
+    <tr><td><b>图片转文字（OCR）</b></td><td>提取文字导出 Word/Excel</td><td>官方称识别准确率 98%</td><td><span class="tag pay">会员</span></td></tr>
+    <tr><td><b>翻译图片</b></td><td>图片内容翻译导出 TXT</td><td>中英等语种</td><td><span class="tag pay">会员</span></td></tr>
+    <tr><td><b>批量导出 / 替换</b></td><td>输出到指定文件夹，或直接替换源文件</td><td>批量导出 vs 批量替换源</td><td><span class="tag pay">会员</span></td></tr>
+    <tr><td><b>文档内图片优化</b></td><td>文档瘦身：内嵌图片压缩+冗余清理</td><td>PPT 实测 80MB→15MB（150ppi）</td><td><span class="tag pay">会员</span></td></tr>
+  </tbody>
+</table>
+<div class="note">免费用户可试用 7 天（智能工具箱），之后按会员权益限次（如图片批量处理 50 份/31 天），付费解锁完整能力——这是典型「先尝后买 + 限次」转化设计。</div>
+
+<h2>三、视频批量处理模块（视频工具箱）</h2>
+<p>WPS「视频工具箱」是与图片批量处理同族的会员组件，入口在首页搜索/特色功能/右键菜单，覆盖视频压缩、格式转换、屏幕录制、视频剪辑。个人版基础操作免费、高级档位（高画质/1080P+）需会员；WPS 365 企业版提供 AI 剪辑与 API。</p>
+<table>
+  <thead><tr><th>能力</th><th>说明</th><th>关键参数 / 边界</th><th>会员</th></tr></thead>
+  <tbody>
+    <tr><td><b>批量视频压缩</b></td><td>多视频一次压缩，选压缩等级</td><td>等级：高/中/低（体积 vs 画质）；基础档免费、高级品质档会员；社区实测 5MB→3.94MB（mp4）</td><td><span class="tag pay">部分免费</span></td></tr>
+    <tr><td><b>批量格式转换</b></td><td>MP4/AVI/MKV 等 100+ 格式双向互转</td><td>可设格式、分辨率（高清1080P）、输出目录；1080P 以上需会员；企业版 GPU 硬件加速 4K/8K 无损批量转码</td><td><span class="tag pay">部分免费</span></td></tr>
+    <tr><td><b>屏幕录制</b></td><td>录屏 + 摄像头/麦克风 + 注释（直线/文字/箭头/画笔/高亮/白板）</td><td>会员享高清、无水印或自定义水印；AI 变声</td><td><span class="tag pay">会员</span></td></tr>
+    <tr><td><b>视频剪辑</b></td><td>WPS 内置视频剪辑（替代独立剪辑软件）</td><td>免费基础剪辑，高级能力会员</td><td><span class="tag pay">部分免费</span></td></tr>
+    <tr><td><b>视频封面 / 播放器</b></td><td>取封面、播放器增强</td><td>会员权益列表含视频封面、视频播放器（部分功能免费）</td><td><span class="tag pay">部分免费</span></td></tr>
+    <tr><td><b>AI 能力（企业版）</b></td><td>智能剪辑、自动字幕、视频转音频（MP3/WAV）、长视频摘要/转写、AI 纪要</td><td>商业旗舰版 599 元/人/年；批量转换 API、并发 5–20；单视频处理上限 4 小时</td><td><span class="tag pay">企业付费</span></td></tr>
+  </tbody>
+</table>
+<div class="card">
+<h3>与 TinyPress 视频能力对照</h3>
+<table>
+  <thead><tr><th>WPS 视频能力</th><th>TinyPress v0.2.0</th><th>差距判定</th><th>建议优先级</th></tr></thead>
+  <tbody>
+    <tr><td>批量视频压缩（等级制）</td><td><span class="tag yes">已实现</span></td><td>质量档 + 目标大小二分 + 硬件加速已对齐，且支持目标体积精确逼近</td><td>—</td></tr>
+    <tr><td>批量格式转换（100+ 格式）</td><td><span class="tag no">缺失</span></td><td>TinyPress 视频输出仅 mp4（h264/hevc/av1）；需扩展容器（mkv/avi/webm/mov）与音频提取</td><td><b>P0</b></td></tr>
+    <tr><td>屏幕录制</td><td><span class="tag no">缺失</span></td><td>与压缩定位不同，可作独立方向</td><td>P2</td></tr>
+    <tr><td>视频剪辑</td><td><span class="tag no">缺失</span></td><td>非 TinyPress 核心定位，暂缓</td><td>P2</td></tr>
+    <tr><td>AI 字幕 / 摘要（企业版）</td><td><span class="tag no">缺失</span></td><td>开源替代：Whisper 本地转写</td><td>P2</td></tr>
+  </tbody>
+</table>
+<p>TinyPress 视频压缩链路（CRF 二分 + 硬件码率迭代 + 自动回退）在目标体积语义上比 WPS「等级制」更强；<b>格式容器转换是首要缺口</b>（FFmpeg 已随包分发，扩展成本低）。</p>
+</div>
+
+<h2>四、压缩能力深度拆解（核心）</h2>
+<div class="card">
+<h3>3.1 三种压缩模式</h3>
+<table>
+  <thead><tr><th>模式</th><th>语义</th><th>适用场景</th><th>对标 TinyPress</th></tr></thead>
+  <tbody>
+    <tr><td><b>按程度压缩</b></td><td>轻度=最清晰、均衡=智能平衡、强压缩=最小体积</td><td>无明确体积要求，求「肉眼无损」</td><td><span class="tag yes">有（质量档 q）</span></td></tr>
+    <tr><td><b>自定义体积</b></td><td>设定目标大小（KB/MB），系统自动计算压缩参数逼近</td><td>报名照 200KB、邮件附件、朋友圈 25MB 类</td><td><span class="tag yes">有（max_size_kb 二分）</span></td></tr>
+    <tr><td><b>AI 压缩</b></td><td>显著性分区：文字/人脸/产品细节高保真，背景深度压缩</td><td>海报、商品图、截图混合内容</td><td><span class="tag no">无</span></td></tr>
+  </tbody>
+</table>
+<p>关键差异：WPS「自定义体积」与 TinyPress「max_size_kb」语义一致（都做目标大小逼近）；WPS 的「按程度」对应 TinyPress 质量档；<b>AI 压缩（显著性分区）是 TinyPress 空白</b>。</p>
+</div>
+
+<div class="card">
+<h3>3.2 压缩技术栈（基于公开资料的合法推断）</h3>
+<ul class="tick">
+  <li><b>自研压缩引擎</b>：WPS 官方文章称 PDF/图片压缩使用「自研压缩引擎」，并对中文文档优化；第三方评测观察到「改进型 JPEG 编码器重写文件流」（非简单调参）。</li>
+  <li><b>内容感知分区</b>（AI 压缩）：通过显著性检测将画面分为高价值区（文字、人脸、产品细节）与背景区，分区设定码率；WPS 365 宣称「无损保留文字与线条、OCR 识别率不下降」，主观视觉质量提升约 30%（同体积下）。</li>
+  <li><b>企业级管线</b>：上传前自动压缩削减 90% 流量；单次批量 100+ 张、单张 50MB 流式处理防失败；按内容类型（文字/照片/图表）智能选算法。</li>
+  <li><b>OCR 管线</b>：图片转文字宣称 98% 准确率（官方口径），导出 Word/Excel——背后是成熟 OCR 模型。</li>
+  <li><b>跨端架构</b>：Windows / Mac / Android / iOS 均有批量处理入口；AI 类能力（抠图、OCR、AI 压缩）依赖云端模型服务（推断：客户端做本地批处理流水线，重模型走云）。</li>
+</ul>
+<div class="note">对照：TinyPress 技术栈为开源引擎（mozjpeg / pngquant / libwebp / libavif / FFmpeg）本地处理——压缩质量与「自研引擎+AI 分区」存在差距，但无上传依赖、隐私更好、无会员限次。</div>
+</div>
+
+<h2>五、会员商业逻辑（为什么它能收钱）</h2>
+<div class="grid2">
+<div class="card">
+<h3>4.1 定价梯度</h3>
+<ul class="tick">
+  <li>WPS 会员（图片/PDF 等单项）：约 89–128 元/年</li>
+  <li>超级会员（全功能）：约 179–268 元/年（含 WPS AI）</li>
+  <li>海外：WPS Pro+ $69.99/年（约 ¥500）</li>
+  <li>图片套餐：40 项图片权益（批量处理、抠图、商用授权等）</li>
+</ul>
+</div>
+<div class="card">
+<h3>4.2 付费设计要点</h3>
+<ul class="tick">
+  <li><b>刚需锚点</b>：报名照/邮件/朋友圈体积限制 = 高频痛点的确定性需求，用户「必须解决」而非「想要」。</li>
+  <li><b>限次转化</b>：免费/试用档 50 份/31 天 → 触发付费；7 天免费试用降低首次门槛。</li>
+  <li><b>全家桶捆绑</b>：批量处理与 PDF、云空间 365G、模板、AI 打包进超级会员，提高客单价与续费理由。</li>
+  <li><b>验证信号</b>：批量图片处理能成为付费权益本身说明——用户愿为「批量+目标体积」付钱，这是 TinyPress 的潜在变现验证。</li>
+</ul>
+</div>
+</div>
+
+<h2>六、TinyPress 差距清单（对照 8 大批量能力）</h2>
+<table>
+  <thead><tr><th>WPS 工具箱能力</th><th>TinyPress v0.2.0</th><th>差距判定</th><th>建议优先级</th></tr></thead>
+  <tbody>
+    <tr><td>批量压缩（含目标体积）</td><td><span class="tag yes">已实现</span></td><td>质量档+max_size_kb 二分已对齐</td><td>—</td></tr>
+    <tr><td>批量格式转换</td><td><span class="tag yes">部分</span></td><td>jpg/webp/avif，缺 png/bmp 输出</td><td>P2</td></tr>
+    <tr><td>批量修改尺寸</td><td><span class="tag no">缺失</span></td><td>仅视频有 crop/scale；图片无 resize</td><td><b>P0</b></td></tr>
+    <tr><td>批量加水印</td><td><span class="tag no">缺失</span></td><td>文字/图片水印（透明度/位置）</td><td><b>P0</b></td></tr>
+    <tr><td>批量旋转 / 裁剪</td><td><span class="tag no">缺失</span></td><td>图片侧无编辑链</td><td><b>P0</b></td></tr>
+    <tr><td>批量重命名</td><td><span class="tag yes">部分</span></td><td>有 rename 模板，可增强规则化</td><td>P2</td></tr>
+    <tr><td>批量抠图 / OCR / 转 PDF</td><td><span class="tag no">缺失</span></td><td>开源可落地（rembg / PaddleOCR / img2pdf）</td><td>P1</td></tr>
+    <tr><td>批量替换源文件</td><td><span class="tag no">缺失</span></td><td>只有输出目录/重命名</td><td>P1</td></tr>
+    <tr><td>AI 压缩（显著性分区）</td><td><span class="tag no">缺失</span></td><td>开源替代：SVT-AV1 内容自适应 / 分区量化实验</td><td>P2</td></tr>
+    <tr><td>文档内图片瘦身</td><td><span class="tag no">缺失</span></td><td>PPT/DOCX 内嵌图提取重压（zip 层可做）</td><td>P2</td></tr>
+    <tr><td>视频格式转换（100+ 格式）</td><td><span class="tag no">缺失</span></td><td>容器/音轨扩展，FFmpeg 已随包</td><td><b>P0</b></td></tr>
+    <tr><td>屏幕录制 / 剪辑 / AI 字幕</td><td><span class="tag no">缺失</span></td><td>非核心定位；字幕可用 Whisper 本地化</td><td>P2</td></tr>
+  </tbody>
+</table>
+
+<div class="chart-box" id="gapChart"></div>
+<div class="note">上图：WPS 工具箱 10 项能力在 TinyPress 的覆盖情况——「完整实现」仅 2 项，这是「功能没达到预期」的功能面根源（压缩质量问题是执行面根源，两者叠加）。</div>
+
+<h2>七、结论与建议</h2>
+<div class="card">
+<ul class="tick">
+  <li><b>WPS 把「图片批量处理」做成会员权益，验证了该场景的付费刚需</b>；TinyPress 方向（本地优先、无订阅）在隐私与成本上有差异化优势。</li>
+  <li><b>功能面是最大短板</b>：TinyPress 只有「压缩+转换」，缺 WPS 的尺寸调整、水印、旋转/裁剪、替换源文件等批量基础盘。P0 建议先补<b>图片批量编辑（尺寸/旋转/裁剪）+ 批量水印</b>，这两项技术均为开源 FFmpeg/cwebp 能力内可实现，2 周内可落地。</li>
+  <li><b>视频侧 P0 是格式容器转换</b>：TinyPress 视频压缩链路已强于 WPS 等级制（目标体积精确逼近），但输出仅 mp4；扩展 mkv/avi/webm/mov 容器与音轨提取成本低（FFmpeg 已随包），建议与图片 P0 同批推进。</li>
+  <li><b>执行面继续收敛</b>：本轮实测已修复 AVIF 不可用、目标大小语义、膨胀提示；建议 P1 再做「批量替换源文件」与「图片转 PDF」，把办公场景闭环。</li>
+  <li><b>AI 压缩/抠图/OCR/字幕作为差异化中期项</b>：全部有成熟开源替代（显著性检测、rembg、PaddleOCR、Whisper），合法可落地，但不进 v0.2.0 范围。</li>
+</ul>
+</div>
+
+<div class="divider"></div>
+<h3>附录：主要资料来源</h3>
+<ul class="src">
+  <li>WPS 会员官网 · 图片批量处理权益说明：vip.wps.cn/privilege_page/privilege_detail?id=img_batch_process</li>
+  <li>WPS 会员官网 · 图片压缩（自定义体积）说明：vip.wps.cn/privilege_page/privilege_detail?id=img_loss_compress</li>
+  <li>WPS 会员权益对比（图片套餐 40 项 / 批量限次 50 份/31 天）：personal-act.wps.cn/application/spa/vip_center_privilege_comparsion_pc</li>
+  <li>WPS 官方教程 · 图片工具箱（转换/OCR/翻译）：wps.cn/learning/room/d/335172</li>
+  <li>WPS Academy · Batch Editor 八大功能（Compress/Resize/Convert/Rename/Crop/Rotate/BG Removal/Watermark）：wps.com/academy/unlock-the-latest-in-wps-photos-editor</li>
+  <li>WPS Academy · How to Compress Images（均衡模式实测 2.45MB→256.09KB）：wps.com/academy/how-to-compress-images-wps-guide-quick-tutorials-1898103</li>
+  <li>WPS 365 · 企业级图片上传压缩（90% 流量削减 / 100+ 张 / 50MB / 分区算法）：365.wps.cn/content/3b745e623839442abb24c7514950a050.html</li>
+  <li>WPS 365 博客 · AI 压缩更新（主观质量 +30%）：plus.wps.cn/blog/p116079.html</li>
+  <li>太平洋科技 · WPS 压缩技术观察（改进型 JPEG 编码器重写）：g.pconline.com.cn/ask/41278.html</li>
+  <li>WPS 论坛 · 图片批量处理实操（自定义体积/批量导出/替换源文件）：forum.wps.cn/topic/5451</li>
+  <li>WPS 官方 · 视频压缩怎么做（批量压缩/等级高/中/低）：wps.cn/article/ban-gong-xiao-lv-ban-gong-ji-qiao-2026-7NtpcwU0.html</li>
+  <li>WPS 365 · 视频格式转换（100+ 格式/GPU 硬件加速批量转码）：365.wps.cn/content/9fa42b76b51c435b8a942c2d2f046acb.html</li>
+  <li>WPS 会员权益（视频压缩/视频转换压缩/视频封面/视频剪辑）：rubik.wps.cn/rubik/?_position=vip_pc_comparsion_5_auto</li>
+  <li>WPS 社区 · 视频工具箱体验（格式转换 AVI/1080P、压缩 5MB→3.94MB）：bbs.wps.cn/topics/tag/528、tag/1570</li>
+</ul>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<script>
+(function () {
+  var el = document.getElementById('gapChart');
+  if (!el || typeof echarts === 'undefined') return;
+  var chart = echarts.init(el);
+  chart.setOption({
+    title: { text: 'TinyPress 对 WPS 工具箱能力的覆盖', left: 'center', textStyle: { fontSize: 15, color: '#2a3644' } },
+    tooltip: { trigger: 'axis' },
+    grid: { left: 110, right: 40, top: 50, bottom: 30 },
+    xAxis: { type: 'value', max: 10, splitLine: { lineStyle: { type: 'dashed' } } },
+    yAxis: { type: 'category', inverse: true, data: ['批量压缩', '格式转换', '尺寸调整', '加水印', '旋转/裁剪', '重命名', '抠图/OCR/转PDF', '替换源文件', 'AI 压缩', '文档瘦身'] },
+    series: [{
+      type: 'bar', barWidth: 16,
+      data: [
+        { value: 2, name: '完整实现', itemStyle: { color: '#0e7a5f' } },
+        { value: 2, name: '部分实现', itemStyle: { color: '#b7791f' } },
+        { value: 1, name: '缺失-P0', itemStyle: { color: '#d93a2b' } },
+        { value: 1, name: '缺失-P0', itemStyle: { color: '#d93a2b' } },
+        { value: 1, name: '缺失-P0', itemStyle: { color: '#d93a2b' } },
+        { value: 1, name: '部分实现', itemStyle: { color: '#b7791f' } },
+        { value: 1, name: '缺失-P1', itemStyle: { color: '#e07b4a' } },
+        { value: 1, name: '缺失-P1', itemStyle: { color: '#e07b4a' } },
+        { value: 1, name: '缺失-P2', itemStyle: { color: '#a9b6c4' } },
+        { value: 1, name: '缺失-P2', itemStyle: { color: '#a9b6c4' } }
+      ],
+      label: { show: true, position: 'right', formatter: function (p) {
+        return ['完整实现','部分实现','缺失-P0','缺失-P0','缺失-P0','部分实现','缺失-P1','缺失-P1','缺失-P2','缺失-P2'][p.dataIndex];
+      }, fontSize: 12, color: '#33404d' }
+    }]
+  });
+  window.addEventListener('resize', function () { chart.resize(); });
+})();
+</script>
+</body>
+</html>

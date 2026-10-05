@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TinyPress 重新定位与全功能路线图</title>
+<style>
+  :root { --ink:#1c2733; --muted:#5a6b7b; --line:#e3e9f0; --brand:#d93a2b; --brand-soft:#fdeeec;
+    --acc:#0e7a5f; --acc-soft:#e7f5f0; --warn:#b7791f; --warn-soft:#fdf3e3; --bg:#f7f9fb; --card:#fff; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:-apple-system,"PingFang SC","Microsoft YaHei","Segoe UI",sans-serif; background:var(--bg); color:var(--ink); line-height:1.65; }
+  .wrap { max-width:1100px; margin:0 auto; padding:32px 24px 64px; }
+  header.hero { background:linear-gradient(135deg,#14332b,#0e7a5f); color:#fff; border-radius:16px; padding:34px 38px; margin-bottom:24px; }
+  header.hero h1 { font-size:25px; font-weight:700; }
+  header.hero .sub { margin-top:10px; color:#cfe8df; font-size:14px; }
+  header.hero .meta { margin-top:14px; display:flex; gap:16px; flex-wrap:wrap; font-size:12.5px; color:#a7cfc2; }
+  header.hero .meta b { color:#ffe3d8; font-weight:600; }
+  h2 { font-size:20px; margin:34px 0 12px; padding-left:12px; border-left:4px solid var(--brand); }
+  h3 { font-size:16px; margin:18px 0 8px; color:#2a3644; }
+  p { margin:8px 0; font-size:14.5px; color:#33404d; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:18px 20px; margin:12px 0; box-shadow:0 1px 2px rgba(28,39,51,.04); }
+  table { width:100%; border-collapse:collapse; font-size:13px; margin:10px 0; }
+  th,td { border:1px solid var(--line); padding:6px 9px; text-align:left; vertical-align:top; }
+  th { background:#f0f4f8; font-weight:600; color:#2a3644; white-space:nowrap; }
+  .st { display:inline-block; padding:0 7px; border-radius:9px; font-size:11.5px; font-weight:600; white-space:nowrap; }
+  .st.have { background:#e7f5f0; color:#0e7a5f; } .st.p0 { background:#fdeeec; color:#d93a2b; }
+  .st.p1 { background:#fdf3e3; color:#b7791f; } .st.p2 { background:#eef2f7; color:#2a6f9e; }
+  .st.p3 { background:#e8eaee; color:#8a9aa9; }
+  .lic { font-size:11.5px; color:var(--muted); }
+  .note { font-size:12.5px; color:var(--muted); background:#f3f6fa; border-radius:8px; padding:8px 12px; margin:10px 0; }
+  .warn-red { font-size:13px; background:#fdf3e3; border:1px solid #ecd9b0; border-radius:8px; padding:10px 14px; margin:10px 0; color:#7a5200; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:760px){ .grid2{grid-template-columns:1fr;} .wrap{padding:16px 12px 48px;} header.hero{padding:22px;} }
+  ul.tick { padding-left:20px; margin:8px 0; font-size:14px; color:#33404d; } ul.tick li { margin:5px 0; }
+  svg { width:100%; height:auto; }
+  .src { font-size:12px; color:var(--muted); word-break:break-all; } .src li { margin:3px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <h1>TinyPress 重新定位与全功能路线图</h1>
+  <div class="sub">对齐 WPS 图片批量处理 + 视频工具箱全部能力 · 全开源技术方案 · 专利规避红线</div>
+  <div class="meta"><span>定位：<b>本地批量媒体工具箱</b></span><span>原则：<b>零专利依赖、零代码抄袭、全开源</b></span><span>范围：<b>20 项能力全覆盖</b></span></div>
+</header>
+
+<h2>一、重新定位声明</h2>
+<div class="card">
+<h3>产品定义</h3>
+<p><b>TinyPress = 本地优先的批量媒体处理工具箱</b>：图片与视频的<b>批量压缩（精确目标体积）、格式转换、批量编辑（尺寸/旋转/裁剪/水印）、批量管理（重命名/替换源文件/转 PDF）</b>一条流水线完成。无会员墙、无上传、无订阅、无限次。</p>
+<h3>目标用户与场景</h3>
+<ul class="tick">
+  <li>办公族：报名照 ≤200KB、邮件附件、微信/朋友圈体积限制、课件图批量压缩</li>
+  <li>电商运营：商品图批量压缩 + 加水印 + 转格式 + 改尺寸（详情页/主图规格）</li>
+  <li>创作者/MCN：视频批量压到平台上限（抖音/视频号）、批量转容器、字幕生成</li>
+</ul>
+<h3>不是做什么（边界）</h3>
+<ul class="tick">
+  <li>不做在线协作/云文档、不做订阅制、不做文档编辑</li>
+  <li>不做屏幕录制、不做完整视频剪辑、不做云端 AI 纪要（P3 暂缓，定位不符）</li>
+  <li>不实现任何 WPS 专利覆盖的方法（见第二章红线）</li>
+</ul>
+<h3>三大支柱（差异化）</h3>
+<ul class="tick">
+  <li><b>本地隐私</b>：全本地处理、零上传——对 WPS（会员墙 + 云 AI）与在线工具的直接差异</li>
+  <li><b>精确体积</b>：目标大小二分逼近（视频 CRF 二分 + 硬件码率迭代），强于 WPS 等级制</li>
+  <li><b>批量工程化</b>：队列并发、取消/重试、崩溃恢复（jobs.json）、批量替换源文件</li>
+</ul>
+</div>
+
+<h2>二、知识产权合规红线（先立规矩）</h2>
+<div class="warn-red">
+<b>三条硬约束：</b>① 不复制 WPS / 金山任何代码（独立开发，仅对齐功能语义）；② 不实现金山已公开专利权利要求覆盖的方法；③ 全部能力使用开源社区方案（附许可证），不引入闭源/侵权依赖。
+</div>
+<div class="card">
+<h3>2.1 金山相关专利规避清单（公开检索，2026-10）</h3>
+<table>
+  <thead><tr><th>金山专利主题</th><th>公开号 / 申请号</th><th>规避策略</th></tr></thead>
+  <tbody>
+    <tr><td>图像处理：目标区域提取 → 压缩 → 融合回填</td><td>CN 118823144 A（2023-04 申请）</td><td>不实现「区域提取+融合」组合步骤；改用开源编码器内置内容自适应量化（libaom deltaq / x265 AQ / SVT-AV1 psy），仅调公开参数</td></tr>
+    <tr><td>抠图：全局视图 + 多个局部视图编码融合分割</td><td>CN202610692261.7（2026-05）</td><td>不参照该方法；直接集成开源分割模型 rembg（U²-Net / BiRefNet 开源权重），独立开源研发路线</td></tr>
+    <tr><td>录屏视频压缩：静态帧替代未重绘视图</td><td>「一种压缩视频大小的方法和装置」（2021）</td><td>TinyPress 不做屏幕录制；通用视频压缩走标准编码（码率/分辨率/编码器选型），与该录屏方法无关</td></tr>
+    <tr><td>MRC 分层 / 双层 PDF 压缩</td><td>金山 PDF 产品专利族（推断）</td><td>不做 PDF MRC 分层；图片压缩用通用编码器；文档瘦身仅做 OOXML(zip) 内嵌图片提取重压（通用文件格式操作）</td></tr>
+  </tbody>
+</table>
+<h3>2.2 开源方案许可证清单（全部合规可用）</h3>
+<table>
+  <thead><tr><th>能力</th><th>开源方案</th><th>许可证</th></tr></thead>
+  <tbody>
+    <tr><td>图片压缩</td><td>mozjpeg / pngquant / libwebp / libaom / libavif</td><td>BSD-3 / BSD-2（libaom）</td></tr>
+    <tr><td>视频转码/容器</td><td>FFmpeg（含 libx264/libx265/SVT-AV1 编码器）</td><td>LGPL-2.1（FFmpeg 主体）/ GPL（libx264/x265，可配置）</td></tr>
+    <tr><td>视频硬件加速</td><td>FFmpeg hwaccel（NVENC/QSV/VideoToolbox 公开接口）</td><td>LGPL + 厂商公开 SDK 接口</td></tr>
+    <tr><td>尺寸/旋转/裁剪/水印</td><td>FFmpeg scale / rotate / crop / drawtext / overlay</td><td>LGPL</td></tr>
+    <tr><td>抠图</td><td>rembg（U²-Net / BiRefNet 权重）</td><td>MIT（rembg）</td></tr>
+    <tr><td>OCR</td><td>PaddleOCR</td><td>Apache-2.0</td></tr>
+    <tr><td>字幕转写</td><td>Whisper（faster-whisper）</td><td>MIT</td></tr>
+    <tr><td>图片转 PDF</td><td>img2pdf</td><td>MIT</td></tr>
+    <tr><td>AI 分区压缩（降级）</td><td>libaom deltaq / x265 adaptive-quantization / SVT-AV1 psy（编码器公开参数）</td><td>BSD-2 / GPL / BSD-2</td></tr>
+    <tr><td>翻译（P3）</td><td>OPUS-MT（HuggingFace）或用户自选 API</td><td>CC-BY-SA / 各模型许可</td></tr>
+  </tbody>
+</table>
+<div class="note">GPL 编码器（libx264/x265）随 FFmpeg 动态链接使用时，TinyPress 需保持可分离性（外部二进制调用 + 提供 GPL 合规声明），工程上已在打包链内置 FFmpeg 独立二进制，符合 LGPL/GPL 调用方式。</div>
+</div>
+
+<h2>三、全功能矩阵（20 项全覆盖）</h2>
+<h3>3.1 图片模块（14 项，对齐 WPS 图片批量处理）</h3>
+<table>
+  <thead><tr><th>#</th><th>能力</th><th>开源技术方案</th><th>状态</th><th>优先级/版本</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>批量压缩 · 质量档</td><td>mozjpeg(0-100) / webp q / avif q / pngquant 透传</td><td><span class="st have">已有</span></td><td>—</td></tr>
+    <tr><td>2</td><td>批量压缩 · 目标体积</td><td>max_size_kb 二分（图片/视频同构）</td><td><span class="st have">已有</span></td><td>—</td></tr>
+    <tr><td>3</td><td>批量压缩 · 内容自适应</td><td>libaom deltaq / x265 AQ / SVT-AV1 psy（编码器公开参数，规避 CN118823144A）</td><td><span class="st p2">规划</span></td><td>P2 · v0.5.0</td></tr>
+    <tr><td>4</td><td>批量格式转换</td><td>FFmpeg / libwebp / libavif；输出扩展 png/bmp</td><td><span class="st have">部分</span></td><td>P1 · v0.4.0</td></tr>
+    <tr><td>5</td><td>批量修改尺寸</td><td>FFmpeg scale（lanczos）/ 自研缩放</td><td><span class="st p0">缺失</span></td><td><b>P0 · v0.3.0</b></td></tr>
+    <tr><td>6</td><td>批量旋转 / 裁剪</td><td>FFmpeg rotate / crop</td><td><span class="st p0">缺失</span></td><td><b>P0 · v0.3.0</b></td></tr>
+    <tr><td>7</td><td>批量加水印</td><td>FFmpeg drawtext（文字/签名）/ overlay（图片），透明度/位置/旋转</td><td><span class="st p0">缺失</span></td><td><b>P0 · v0.3.0</b></td></tr>
+    <tr><td>8</td><td>批量重命名</td><td>已有模板；增强规则化（序列/日期/元数据）</td><td><span class="st have">部分</span></td><td>P2 · v0.5.0</td></tr>
+    <tr><td>9</td><td>批量抠图</td><td>rembg（U²-Net / BiRefNet 开源权重，独立路线，规避 CN202610692261.7）</td><td><span class="st p2">缺失</span></td><td>P2 · v0.5.0</td></tr>
+    <tr><td>10</td><td>图片转 PDF</td><td>img2pdf（无损嵌入）</td><td><span class="st p1">缺失</span></td><td>P1 · v0.4.0</td></tr>
+    <tr><td>11</td><td>图片转文字 OCR</td><td>PaddleOCR（本地，印刷/手写/表格）</td><td><span class="st p2">缺失</span></td><td>P2 · v0.5.0</td></tr>
+    <tr><td>12</td><td>翻译图片</td><td>OCR + OPUS-MT 本地小模型（或用户自选 API）</td><td><span class="st p3">缺失</span></td><td>P3 · 远期</td></tr>
+    <tr><td>13</td><td>批量替换源文件</td><td>输出覆盖/备份选项（自研文件层）</td><td><span class="st p1">缺失</span></td><td>P1 · v0.4.0</td></tr>
+    <tr><td>14</td><td>文档内图片瘦身</td><td>OOXML(zip) 解析 pptx/docx → 提取内嵌图 → 重压回填（通用文件格式，非 MRC）</td><td><span class="st p2">缺失</span></td><td>P2 · v0.5.0</td></tr>
+  </tbody>
+</table>
+<h3>3.2 视频模块（6 项，对齐 WPS 视频工具箱）</h3>
+<table>
+  <thead><tr><th>#</th><th>能力</th><th>开源技术方案</th><th>状态</th><th>优先级/版本</th></tr></thead>
+  <tbody>
+    <tr><td>15</td><td>批量视频压缩</td><td>质量档 + 目标体积（CRF 二分）+ 硬件加速闭环（NVENC/QSV/VideoToolbox 探测+回退）</td><td><span class="st have">已有</span></td><td>—</td></tr>
+    <tr><td>16</td><td>批量格式容器转换</td><td>FFmpeg 封装扩展 mkv/avi/webm/mov + 音轨提取 mp3/wav（100+ 容器为 FFmpeg 原生能力）</td><td><span class="st p0">缺失</span></td><td><b>P0 · v0.3.0</b></td></tr>
+    <tr><td>17</td><td>视频封面抽帧</td><td>FFmpeg seek + 抽帧</td><td><span class="st p1">缺失</span></td><td>P1 · v0.4.0</td></tr>
+    <tr><td>18</td><td>自动字幕</td><td>faster-whisper（本地转写，SRT 输出）</td><td><span class="st p2">缺失</span></td><td>P2 · v0.5.0</td></tr>
+    <tr><td>19</td><td>屏幕录制</td><td>—（定位不符，且金山有录屏压缩专利主题）</td><td><span class="st p3">暂缓</span></td><td>P3 · 重新评估</td></tr>
+    <tr><td>20</td><td>视频剪辑 / AI 纪要</td><td>—（非本地工具定位；纪要依赖 LLM）</td><td><span class="st p3">暂缓</span></td><td>P3 · 重新评估</td></tr>
+  </tbody>
+</table>
+<div class="note">「缺失」均指 TinyPress 当前未实现；「已有」= v0.2.0 已落地并通过实测。全部规划项均有开源合规方案，无一依赖金山专利方法。</div>
+
+<h2>四、差异化对照</h2>
+<table>
+  <thead><tr><th>维度</th><th>WPS 图片/视频模块</th><th>TinyPress（新定位）</th><th>在线工具（TinyPNG 类）</th></tr></thead>
+  <tbody>
+    <tr><td>隐私</td><td>常规本地；AI 能力部分走云</td><td><b>全本地零上传</b></td><td>上传第三方服务器</td></tr>
+    <tr><td>价格</td><td>会员墙：图片批量 50 份/31 天限次；128–268 元/年</td><td><b>免费开源，无限次</b></td><td>按量/订阅（限 20 张/批常见）</td></tr>
+    <tr><td>体积语义</td><td>等级制（高/中/低）</td><td><b>精确目标体积逼近（强于 WPS）</b></td><td>仅压缩比，无目标体积</td></tr>
+    <tr><td>批量工程化</td><td>简单队列</td><td><b>并发 2、取消/重试、崩溃恢复、批量替换源</b></td><td>逐张上传</td></tr>
+    <tr><td>AI 能力</td><td>专利算法（分区融合/分割网络）</td><td>开源等价（编码器自适应/rembg/PaddleOCR/Whisper）</td><td>云端闭源</td></tr>
+    <tr><td>跨端</td><td>Win/Mac/Android/iOS + 云</td><td>桌面（Tauri，Win/macOS/Linux 路线）</td><td>浏览器</td></tr>
+  </tbody>
+</table>
+
+<h2>五、版本路线图</h2>
+<svg viewBox="0 0 960 330" xmlns="http://www.w3.org/2000/svg" font-family="PingFang SC, Microsoft YaHei, sans-serif">
+  <defs><marker id="ar2" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 Z" fill="#8a9aa9"/></marker></defs>
+  <line x1="60" y1="120" x2="900" y2="120" stroke="#8a9aa9" stroke-width="2.5" marker-end="url(#ar2)"/>
+  <g font-size="12.5">
+    <rect x="60" y="40" width="170" height="64" rx="10" fill="#e7f5f0" stroke="#0e7a5f" stroke-width="1.5"/>
+    <text x="145" y="62" text-anchor="middle" font-weight="700" fill="#0e7a5f">v0.2.0 · 发布</text>
+    <text x="145" y="82" text-anchor="middle" fill="#33404d">六项 P0 + skipped 修复</text>
+    <text x="145" y="98" text-anchor="middle" fill="#5a6b7b">当前（待发布）</text>
+    <rect x="270" y="40" width="170" height="64" rx="10" fill="#fdeeec" stroke="#d93a2b" stroke-width="1.5"/>
+    <text x="355" y="62" text-anchor="middle" font-weight="700" fill="#d93a2b">v0.3.0 · 批量编辑</text>
+    <text x="355" y="82" text-anchor="middle" fill="#33404d">尺寸/旋转/裁剪/水印</text>
+    <text x="355" y="98" text-anchor="middle" fill="#33404d">视频容器转换</text>
+    <rect x="480" y="40" width="170" height="64" rx="10" fill="#fdf3e3" stroke="#b7791f" stroke-width="1.5"/>
+    <text x="565" y="62" text-anchor="middle" font-weight="700" fill="#b7791f">v0.4.0 · 办公闭环</text>
+    <text x="565" y="82" text-anchor="middle" fill="#33404d">转 PDF/替换源/封面抽帧</text>
+    <text x="565" y="98" text-anchor="middle" fill="#33404d">输出格式扩展</text>
+    <rect x="690" y="40" width="170" height="64" rx="10" fill="#eef2f7" stroke="#2a6f9e" stroke-width="1.5"/>
+    <text x="775" y="62" text-anchor="middle" font-weight="700" fill="#2a6f9e">v0.5.0 · 本地智能</text>
+    <text x="775" y="82" text-anchor="middle" fill="#33404d">编码器自适应/抠图/OCR</text>
+    <text x="775" y="98" text-anchor="middle" fill="#33404d">字幕/重命名/文档瘦身</text>
+    <text x="120" y="170" text-anchor="middle" fill="#8a9aa9">P0 · 2 周内</text>
+    <text x="355" y="170" text-anchor="middle" fill="#8a9aa9">P1 · +2 周</text>
+    <text x="565" y="170" text-anchor="middle" fill="#8a9aa9">P2 · +4 周</text>
+  </g>
+  <rect x="60" y="210" width="900" height="80" rx="10" fill="#f7f9fb" stroke="#e3e9f0"/>
+  <text x="80" y="236" font-size="13" font-weight="700" fill="#2a3644">远期 P3（重新评估）：翻译图片 · 屏幕录制 · 完整视频剪辑 · AI 纪要</text>
+  <text x="80" y="258" font-size="12.5" fill="#5a6b7b">排除理由：非本地批处理工具定位；录屏涉及金山录屏压缩专利主题；剪辑与纪要依赖 LLM/系统级能力</text>
+  <text x="80" y="278" font-size="12.5" fill="#5a6b7b">若未来进入：录屏用开源 OBS 方案（GPL）独立实现，不采用静态帧替代类方法</text>
+</svg>
+
+<h2>六、里程碑验收标准</h2>
+<div class="grid2">
+<div class="card">
+<h3>v0.3.0（P0 批量编辑）验收</h3>
+<ul class="tick">
+  <li>批量改尺寸：≤5 目标尺寸预设 + 自定义，lanczos 缩放，实测尺寸误差 ≤1px</li>
+  <li>批量旋转/裁剪：90/180/270 + 任意角，裁剪区域可视化预览</li>
+  <li>批量水印：文字/图片水印，透明度/位置/旋转参数化，批量输出一致性抽查</li>
+  <li>视频容器转换：mkv/avi/webm/mov 互转 + mp3/wav 音轨提取，容器内编码不重编码（-c copy 优先）</li>
+  <li>全部走队列，取消/重试/恢复可用；集成实测 ≥5 项通过</li>
+</ul>
+</div>
+<div class="card">
+<h3>v0.4.0 / v0.5.0 验收</h3>
+<ul class="tick">
+  <li>转 PDF：无损嵌入（img2pdf），多图合并顺序稳定；替换源文件：默认备份 + 可回滚</li>
+  <li>抠图：rembg 模型本地加载，人物/商品图边缘质量抽检；OCR：印刷体正确率 ≥95%（本地语料）</li>
+  <li>字幕：faster-whisper 中文转写，SRT 时间轴对齐抽检</li>
+  <li>编码器自适应压缩：libaom deltaq / x265 AQ 与普通档同体积下 PSNR/SSIM 不劣化即过</li>
+  <li>合规自检：新增依赖逐项核对许可证清单，无 GPL 传染到主程序（外部二进制调用）</li>
+</ul>
+</div>
+</div>
+
+<div style="border-top:1px dashed var(--line);margin:26px 0;"></div>
+<h3>附录：关键依据</h3>
+<ul class="src">
+  <li>金山「图像处理方法」CN 118823144 A（目标区域提取+融合）：toutiao.com/group/7431025242648183305</li>
+  <li>金山「抠图方法、装置」CN202610692261.7：zhuanli.tianyancha.com/c561da69718b9db35634678ac16f6e3b</li>
+  <li>金山「一种压缩视频大小的方法和装置」（录屏）：qixin 专利 PDF（2021-03）</li>
+  <li>WPS OCR 用 TensorFlow（官方）：wps.com/academy/what-is-the-ocr-feature-in-wps-office/about-wps/1863224/</li>
+  <li>WPS 视频 GPU 硬件加速 / 100+ 容器：365.wps.cn/content/9fa42b76b51c435b8a942c2d2f046acb.html</li>
+  <li>WPS 图片批量处理 / 压缩权益（功能基准）：vip.wps.cn/privilege_page/privilege_detail?id=img_batch_process</li>
+  <li>开源方案许可证：mozjpeg BSD-3、pngquant BSD、libwebp BSD、libaom BSD-2、FFmpeg LGPL、rembg MIT、PaddleOCR Apache-2.0、faster-whisper MIT、img2pdf MIT</li>
+</ul>
+
+</div>
+</body>
+</html>

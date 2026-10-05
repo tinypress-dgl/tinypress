@@ -5,6 +5,7 @@ import type {
   AppSettings,
   EditOptions,
   EngineInfo,
+  ImageEditOptions,
   Preset,
   ProgressEvent,
   QueueItem,
@@ -59,6 +60,12 @@ export interface CompressItem {
   rename?: string;
   /** 基础编辑（截取/旋转/去黑边/裁剪） */
   edit?: EditOptions;
+  /** v0.3.0 图片批量编辑（尺寸/旋转/裁剪/水印） */
+  imageEdit?: ImageEditOptions;
+  /** v0.3.0 视频容器转换目标（mkv/avi/webm/mov/flv/ts，缺省 mp4） */
+  container?: string;
+  /** v0.3.0 音轨提取（mp3/wav） */
+  audioOnly?: string;
 }
 
 export interface CompressRequest {
@@ -155,6 +162,11 @@ export async function onNativeFilesDropped(
 /** 原生多选文件对话框（图片/视频）；用户取消返回 null */
 export function pickInputFiles(): Promise<string[] | null> {
   return invoke<string[] | null>("pick_input_files");
+}
+
+/** 原生单选对话框（水印图片）；用户取消返回 null */
+export function pickWatermarkImage(): Promise<string | null> {
+  return invoke<string | null>("pick_watermark_image");
 }
 
 /** 把用户输入的路径（文件/文件夹，可混排）解析为真实文件列表（文件夹递归收集媒体文件） */

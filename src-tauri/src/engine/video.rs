@@ -443,6 +443,7 @@ pub async fn compress(
     Ok(Output {
         output_path: output.to_path_buf(),
         output_size: size,
+        skipped: false,
     })
 }
 
@@ -466,6 +467,16 @@ pub async fn compress_to_size(
     if max_bytes == 0 {
         return Err("目标大小不能为 0".into());
     }
+    // 源已达标：不重编码（避免「越压越大」+ 白损失质量），直接返回源
+    let src_size = std::fs::metadata(input).map(|m| m.len()).unwrap_or(0);
+    if src_size > 0 && src_size <= max_bytes {
+        on_progress(100);
+        return Ok(Output {
+            output_path: input.to_path_buf(),
+            output_size: src_size,
+            skipped: true,
+        });
+    }
     let autocrop_spec = match edit.and_then(|e| e.autocrop.then_some(())) {
         Some(()) => detect_crop(input).await,
         None => None,
@@ -485,6 +496,7 @@ pub async fn compress_to_size(
         return Ok(Output {
             output_path: output.to_path_buf(),
             output_size: first_size,
+            skipped: false,
         });
     }
 
@@ -557,6 +569,7 @@ pub async fn compress_to_size(
             Ok(Output {
                 output_path: output.to_path_buf(),
                 output_size: size,
+                skipped: false,
             })
         }
         _ => {
@@ -579,6 +592,7 @@ pub async fn compress_to_size(
                     best = Some(Output {
                         output_path: output.to_path_buf(),
                         output_size: size,
+                        skipped: false,
                     });
                     if round >= 1 {
                         break; // 已收敛
@@ -604,6 +618,138 @@ pub async fn compress_to_size(
             }
         }
     }
+}
+
+/// 容器转换（不重编码优先）：目标容器 mkv/avi/webm/mov/flv/ts。
+/// 先试 `-c copy`（秒完成、零画质损失），容器/编码不兼容时自动回退转码。
+pub async fn remux(input: &Path, output: &Path, container: &str) -> Result<Output, String> {
+    let locator = BinaryLocator;
+    let ffmpeg = locator
+        .find("ffmpeg")
+        .ok_or_else(|| "未找到 ffmpeg 二进制".to_string())?;
+    let input_s = input.to_str().ok_or("路径非法")?;
+    let output_s = output.to_str().ok_or("路径非法")?;
+
+    let copy = Command::new(&ffmpeg)
+        .args(["-y", "-i", input_s, "-c", "copy", "-map", "0", output_s])
+        .stderr(Stdio::null())
+        .status()
+        .await
+        .map_err(|e| format!("启动 ffmpeg 失败: {e}"))?;
+    if copy.success() {
+        return finish_remux(output).await;
+    }
+    let _ = std::fs::remove_file(output);
+
+    // 回退转码：webm → VP9/Opus；其余容器 → H.264/AAC（兼容性最广）
+    let (vc, ac): (&str, &str) = if container == "webm" {
+        ("libvpx-vp9", "libopus")
+    } else {
+        ("libx264", "aac")
+    };
+    let vcodec_extra: &[&str] = if container == "webm" {
+        &["-crf", "30", "-b:v", "0"]
+    } else {
+        &["-preset", "medium", "-crf", "23"]
+    };
+    let mut args: Vec<String> = vec![
+        "-y".into(),
+        "-i".into(),
+        input_s.into(),
+        "-c:v".into(),
+        vc.into(),
+    ];
+    args.extend(vcodec_extra.iter().map(|s| s.to_string()));
+    args.extend(["-c:a".into(), ac.into(), output_s.into()]);
+    let st = Command::new(&ffmpeg)
+        .args(&args)
+        .stderr(Stdio::null())
+        .status()
+        .await
+        .map_err(|e| format!("启动 ffmpeg 失败: {e}"))?;
+    if !st.success() {
+        return Err(format!("容器转换转码回退退出码: {:?}", st.code()));
+    }
+    finish_remux(output).await
+}
+
+/// 音轨提取：mp3（libmp3lame）或 wav（pcm_s16le）；画面丢弃、快速完成。
+pub async fn extract_audio(
+    input: &Path,
+    output: &Path,
+    kind: &str,
+    _cancel: &std::sync::atomic::AtomicBool,
+) -> Result<Output, String> {
+    let locator = BinaryLocator;
+    let ffmpeg = locator
+        .find("ffmpeg")
+        .ok_or_else(|| "未找到 ffmpeg 二进制".to_string())?;
+    let input_s = input.to_str().ok_or("路径非法")?;
+    let output_s = output.to_str().ok_or("路径非法")?;
+
+    // 先探测音频流：无音轨时给出清晰错误（避免 ffmpeg 234 裸退出码）
+    if let Some(ffprobe) = locator.find("ffprobe") {
+        let probe = Command::new(&ffprobe)
+            .args([
+                "-v",
+                "error",
+                "-select_streams",
+                "a",
+                "-show_entries",
+                "stream=index",
+                "-of",
+                "csv=p=0",
+                input_s,
+            ])
+            .output()
+            .await
+            .map_err(|e| format!("启动 ffprobe 失败: {e}"))?;
+        if probe.status.success() && String::from_utf8_lossy(&probe.stdout).trim().is_empty() {
+            return Err("视频中未检测到音频流，无法提取音轨".into());
+        }
+    }
+
+    let codec_args: Vec<String> = if kind == "wav" {
+        vec!["-c:a".into(), "pcm_s16le".into()]
+    } else {
+        vec!["-c:a".into(), "libmp3lame".into(), "-q:a".into(), "4".into()]
+    };
+    let mut args = vec![
+        "-y".into(),
+        "-i".into(),
+        input_s.into(),
+        "-vn".into(),
+    ];
+    args.extend(codec_args);
+    args.push(output_s.into());
+    let st = Command::new(&ffmpeg)
+        .args(&args)
+        .stderr(Stdio::null())
+        .status()
+        .await
+        .map_err(|e| format!("启动 ffmpeg 失败: {e}"))?;
+    if !st.success() {
+        return Err(format!("音轨提取退出码: {:?}", st.code()));
+    }
+    let size = std::fs::metadata(output)
+        .map_err(|e| format!("读取输出失败: {e}"))?
+        .len();
+    Ok(Output {
+        output_path: output.to_path_buf(),
+        output_size: size,
+        skipped: false,
+    })
+}
+
+async fn finish_remux(output: &Path) -> Result<Output, String> {
+    let size = std::fs::metadata(output)
+        .map_err(|e| format!("读取输出失败: {e}"))?
+        .len();
+    Ok(Output {
+        output_path: output.to_path_buf(),
+        output_size: size,
+        skipped: false,
+    })
 }
 
 /// 从 ffmpeg stderr 行解析 `time=HH:MM:SS.xx`
@@ -886,5 +1032,84 @@ mod tests {
             out.output_size as f64 / src as f64 * 100.0,
             peak.load(std::sync::atomic::Ordering::Relaxed)
         );
+    }
+
+    /// 集成实测：容器转换（-c copy 优先）——mp4 → mkv 应秒完成、体积近似
+    #[tokio::test]
+    #[ignore = "集成实测：需要 ffmpeg 在 PATH"]
+    async fn remux_mp4_to_mkv_copy() {
+        let input = Path::new(
+            "/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/corpus/vid_bbb_1080p10s.mp4",
+        );
+        assert!(input.exists(), "缺少素材 {}", input.display());
+        let out = Path::new(
+            "/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/verify/out_remux.mkv",
+        );
+        let _ = std::fs::remove_file(out);
+        let r = remux(input, out, "mkv")
+            .await
+            .unwrap_or_else(|e| panic!("remux 失败: {e}"));
+        assert!(r.output_path.exists(), "输出未生成");
+        let src = std::fs::metadata(input).unwrap().len();
+        // -c copy：体积应非常接近源（允许 2% 容器开销差）
+        assert!(
+            (r.output_size as i64 - src as i64).abs() < (src as i64 / 50),
+            "copy 重封装体积偏差过大: 源 {src} 输出 {}",
+            r.output_size
+        );
+        println!(
+            "[实测] 容器转换 copy: mp4 -> mkv 源 {src}B 输出 {}B",
+            r.output_size
+        );
+    }
+
+    /// 集成实测：音轨提取——带音轨 mp4 → mp3，输出存在且明显小于源（无视频流）
+    #[tokio::test]
+    #[ignore = "集成实测：需要 ffmpeg 在 PATH"]
+    async fn extract_audio_mp4_to_mp3() {
+        let input = Path::new(
+            "/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/verify/bbb_with_audio.mp4",
+        );
+        assert!(input.exists(), "缺少素材 {}", input.display());
+        let out = Path::new(
+            "/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/verify/out_audio.mp3",
+        );
+        let _ = std::fs::remove_file(out);
+        let cancel = std::sync::atomic::AtomicBool::new(false);
+        let r = extract_audio(input, out, "mp3", &cancel)
+            .await
+            .unwrap_or_else(|e| panic!("extract_audio 失败: {e}"));
+        assert!(r.output_path.exists());
+        let src = std::fs::metadata(input).unwrap().len();
+        assert!(
+            r.output_size < src / 4,
+            "音轨应远小于视频源: 源 {src} 输出 {}",
+            r.output_size
+        );
+        println!(
+            "[实测] 音轨提取: mp4 -> mp3 源 {src}B 输出 {}B",
+            r.output_size
+        );
+    }
+
+    /// 集成实测：无音轨视频提取音轨 → 报清晰错误
+    #[tokio::test]
+    #[ignore = "集成实测：需要 ffmpeg 在 PATH"]
+    async fn extract_audio_no_track_reports_clear_error() {
+        let input = Path::new(
+            "/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/corpus/vid_bbb_1080p10s.mp4",
+        );
+        let out = Path::new(
+            "/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/verify/out_audio_none.mp3",
+        );
+        let cancel = std::sync::atomic::AtomicBool::new(false);
+        let err = extract_audio(input, out, "mp3", &cancel)
+            .await
+            .unwrap_err();
+        assert!(
+            err.contains("未检测到音频流"),
+            "应报无音轨错误，实际: {err}"
+        );
+        println!("[实测] 无音轨提取报错: {err}");
     }
 }

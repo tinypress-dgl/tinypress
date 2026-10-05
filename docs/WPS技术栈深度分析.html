@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WPS 图片与视频模块技术栈深度分析</title>
+<style>
+  :root { --ink:#1c2733; --muted:#5a6b7b; --line:#e3e9f0; --brand:#d93a2b; --brand-soft:#fdeeec;
+    --acc:#0e7a5f; --acc-soft:#e7f5f0; --warn:#b7791f; --warn-soft:#fdf3e3; --bg:#f7f9fb; --card:#fff; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:-apple-system,"PingFang SC","Microsoft YaHei","Segoe UI",sans-serif; background:var(--bg); color:var(--ink); line-height:1.65; }
+  .wrap { max-width:1080px; margin:0 auto; padding:32px 24px 64px; }
+  header.hero { background:linear-gradient(135deg,#2a3644,#1c2733); color:#fff; border-radius:16px; padding:34px 38px; margin-bottom:24px; }
+  header.hero h1 { font-size:25px; font-weight:700; }
+  header.hero .sub { margin-top:10px; color:#c8d3de; font-size:14px; }
+  header.hero .meta { margin-top:14px; display:flex; gap:16px; flex-wrap:wrap; font-size:12.5px; color:#9fb0c0; }
+  header.hero .meta b { color:#ffd9d2; font-weight:600; }
+  h2 { font-size:20px; margin:34px 0 12px; padding-left:12px; border-left:4px solid var(--brand); }
+  h3 { font-size:16px; margin:18px 0 8px; color:#2a3644; }
+  p { margin:8px 0; font-size:14.5px; color:#33404d; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:18px 20px; margin:12px 0; box-shadow:0 1px 2px rgba(28,39,51,.04); }
+  table { width:100%; border-collapse:collapse; font-size:13.5px; margin:10px 0; }
+  th,td { border:1px solid var(--line); padding:7px 10px; text-align:left; vertical-align:top; }
+  th { background:#f0f4f8; font-weight:600; color:#2a3644; white-space:nowrap; }
+  .ev { display:inline-block; padding:0 7px; border-radius:9px; font-size:11.5px; font-weight:600; white-space:nowrap; }
+  .ev.a { background:#e7f5f0; color:#0e7a5f; } .ev.b { background:#fdf3e3; color:#b7791f; } .ev.c { background:#eef2f7; color:#5a6b7b; }
+  .note { font-size:12.5px; color:var(--muted); background:#f3f6fa; border-radius:8px; padding:8px 12px; margin:10px 0; }
+  .src { font-size:12px; color:var(--muted); word-break:break-all; } .src li { margin:3px 0; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:760px){ .grid2{grid-template-columns:1fr;} .wrap{padding:16px 12px 48px;} header.hero{padding:22px;} }
+  ul.tick { padding-left:20px; margin:8px 0; font-size:14px; color:#33404d; } ul.tick li { margin:5px 0; }
+  svg { width:100%; height:auto; }
+  .legend { display:flex; gap:16px; flex-wrap:wrap; font-size:12.5px; color:var(--muted); margin:8px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <h1>WPS 图片批量处理 + 视频工具箱 · 技术栈深度分析</h1>
+  <div class="sub">基于公开专利、官方文档、第三方评测与产业链推断的合法技术拆解（证据分级标注）</div>
+  <div class="meta"><span>方法：<b>合法深挖</b>（专利/官方文档/评测，不含逆向）</span><span>基准：<b>2026-10</b></span><span>目的：<b>为 TinyPress 重新定位提供技术对标</b></span></div>
+</header>
+
+<div class="legend">
+  <span><span class="ev a">A 级</span> 官方文档/专利/官方声明</span>
+  <span><span class="ev b">B 级</span> 第三方评测/社区实测观察</span>
+  <span><span class="ev c">C 级</span> 行业常识/合理推断</span>
+</div>
+
+<h2>一、技术栈总览</h2>
+<p>WPS 图片/视频模块是<b>「本地批处理流水线 + AI 模型层 + 云服务」</b>的三层结构：常规压缩、转换、尺寸、水印等重活走端侧自研引擎（快、离线、无上传）；AI 类能力（AI 压缩、抠图、OCR、字幕）由本地/云端部署的深度学习模型提供，敏感场景可切本地模式。</p>
+<svg viewBox="0 0 960 460" xmlns="http://www.w3.org/2000/svg" font-family="PingFang SC, Microsoft YaHei, sans-serif">
+  <defs><marker id="ar" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 Z" fill="#8a9aa9"/></marker></defs>
+  <rect x="40" y="20" width="880" height="120" rx="10" fill="#fdeeec" stroke="#d93a2b" stroke-width="1.5"/>
+  <text x="60" y="46" font-size="15" font-weight="700" fill="#d93a2b">端侧引擎层（本地批处理流水线）</text>
+  <text x="60" y="70" font-size="13" fill="#33404d">图片压缩（改进型 JPEG 编码器 / 分层压缩）· 格式转换 · 尺寸/旋转/裁剪 · 水印 · 批量调度</text>
+  <text x="60" y="92" font-size="13" fill="#33404d">视频压缩/转码（GPU 硬件加速编码引擎：NVIDIA / Intel）· 100+ 容器封装 · 批量任务队列</text>
+  <text x="60" y="114" font-size="12" fill="#8a9aa9">特征：离线可用 · 隐私优先 · 无上传 · 目标体积逼近</text>
+  <line x1="480" y1="140" x2="480" y2="180" stroke="#8a9aa9" stroke-width="2" marker-end="url(#ar)"/>
+  <rect x="40" y="182" width="880" height="140" rx="10" fill="#e7f5f0" stroke="#0e7a5f" stroke-width="1.5"/>
+  <text x="60" y="208" font-size="15" font-weight="700" fill="#0e7a5f">AI 模型层（深度学习，本地 / 云端双模式）</text>
+  <text x="60" y="232" font-size="13" fill="#33404d">AI 压缩：显著性/目标区域提取 → 分区保真 → 融合（金山图像处理专利）</text>
+  <text x="60" y="254" font-size="13" fill="#33404d">抠图：全局+局部多尺度视图编码分割（金山「抠图方法」专利，2026-05）</text>
+  <text x="60" y="276" font-size="13" fill="#33404d">OCR：TensorFlow / TensorFlow Lite 部署（官方承认），华工金连文团队合作</text>
+  <text x="60" y="298" font-size="12" fill="#8a9aa9">特征：印刷/手写/表格/多语种 · 识别率 95–98% 口径 · 敏感文档可离线</text>
+  <line x1="480" y1="322" x2="480" y2="362" stroke="#8a9aa9" stroke-width="2" marker-end="url(#ar)"/>
+  <rect x="40" y="364" width="880" height="76" rx="10" fill="#eef2f7" stroke="#5a6b7b" stroke-width="1.5"/>
+  <text x="60" y="392" font-size="15" font-weight="700" fill="#2a3644">云服务层（WPS 365 / 会员网关）</text>
+  <text x="60" y="416" font-size="13" fill="#33404d">AI 剪辑 · 自动字幕 · 长视频摘要/转写 · AI 纪要（商业旗舰版 599 元/人/年）· 权益/限次计费</text>
+</svg>
+<div class="note">上图结构依据公开资料综合绘制（示意）：端侧引擎承担常规批处理，AI 能力本地/云端双模式，企业 AI 走云服务。分层边界为合理推断。</div>
+
+<h2>二、图片压缩引擎：分区 + 分层 + 重写</h2>
+<div class="card">
+<h3>2.1 核心机制（三证据链）</h3>
+<table>
+  <thead><tr><th>机制</th><th>依据</th><th>证据</th></tr></thead>
+  <tbody>
+    <tr><td><b>目标区域提取 + 分区压缩 + 融合</b></td><td>金山办公公开专利「图像处理方法」（2024-10 公开报道，CNIPA 可查）：提取目标区域 → 整体压缩 → 融合目标区域得到第三图</td><td><span class="ev a">A 级</span></td></tr>
+    <tr><td><b>分层压缩（MRC 类）</b></td><td>WPS 365「自研 MRC 分层与双层 PDF 技术」：前景文字/背景分层分别用最优算法；扫描件启用 JBIG2/G4；公章/手写签名优先保真；DPI 智能降级（压缩率 90%+）</td><td><span class="ev a">A 级</span></td></tr>
+    <tr><td><b>改进型 JPEG 编码器重写文件流</b></td><td>第三方评测（太平洋科技 2026-02）：WPS 压缩图片采用改进型 JPEG 编码器重写文件流，非简单调参；配合 0–100 质量参数调节</td><td><span class="ev b">B 级</span></td></tr>
+  </tbody>
+</table>
+<p>三者合起来即 WPS「AI 压缩」的完整链路：<b>显著性分区（文字/人脸/产品细节=高价值区）→ 分区差异化量化 → 融合回填</b>。官方称同体积下主观视觉质量提升约 30%（WPS 365 博客）。</p>
+</div>
+
+<h2>三、AI 压缩：目标区域保真算法</h2>
+<div class="card">
+<ul class="tick">
+  <li><b>原理</b>：从待压缩图提取「目标区域」（专利措辞），压缩整体后把目标区域按原质量融合回去——即「背景深压、重点保真」。</li>
+  <li><b>高价值区类型</b>（官方口径）：文字、人脸、产品细节；背景等非关键区域深度压缩。</li>
+  <li><b>效果口径</b>：文字/线条无损保留、OCR 识别率不下降；主观视觉质量 +30%（WPS 365，A 级）。</li>
+  <li><b>落地形态</b>：桌面端在「AI 压缩」档位触发；企业端（WebOffice）上传前自动压缩、单次 100+ 张、单张 50MB 流式防失败。</li>
+</ul>
+<div class="note">对 TinyPress 的启示：该算法可用开源显著性检测（如 OpenCV saliency、U2-Net）复刻「分区保真」思路，属合法可落地路线（P2）。</div>
+</div>
+
+<h2>四、抠图技术：全局 + 局部多尺度分割</h2>
+<div class="card">
+<ul class="tick">
+  <li><b>专利证据</b>：「抠图方法、装置」（CN202610692261.7，申请 2026-05-19，武汉/珠海/北京金山办公，已授权）：<b>生成全局视图 + 多个局部视图 → 分别编码 → 全局特征与局部特征融合 → 分割</b>。这是多尺度/局部注意力分割网络的典型架构（与 U²-Net 类思路同族）。</li>
+  <li><b>产品口径</b>：photo.wps.cn「AI 图像分割技术，识别人物/商品/动物/植物，最快 3 秒透明底」；PDF 侧「AI 图像识别引擎 + 智能抠图算法」提取签名/印章为透明 PNG。</li>
+  <li><b>端云</b>：在线抠图页（photo.wps.cn）为云端推理；客户端批量抠图为会员权益（推断走端侧或云侧，官方未明说）。</li>
+</ul>
+<div class="note">对 TinyPress 的启示：开源 U²-Net / rembg（ONNX）即可复刻同类分割能力（P2），无需自研模型。</div>
+</div>
+
+<h2>五、OCR 技术：TensorFlow 系模型（官方承认）</h2>
+<div class="card">
+<table>
+  <thead><tr><th>事实</th><th>依据</th><th>证据</th></tr></thead>
+  <tbody>
+    <tr><td>WPS OCR 使用 <b>TensorFlow / TensorFlow Lite</b> 部署模型：图像类型自动识别、扫描件旋转矫正、文本行检测、自然场景 OCR</td><td>WPS Academy 官方文章《What is the OCR feature in WPS Office》</td><td><span class="ev a">A 级</span></td></tr>
+    <tr><td>与<b>华南理工大学金连文教授团队</b>合作：复杂版式 OCR、文档多模态、大纲目录层级识别</td><td>中国知识产权报专利周刊（2024-09）</td><td><span class="ev a">A 级</span></td></tr>
+    <tr><td>自研 AI 深度学习 OCR 引擎：印刷体/手写体/表格/多语种；<b>本地与云端双模式</b>，敏感文档可离线</td><td>WPS 365 企业文档</td><td><span class="ev a">A 级</span></td></tr>
+    <tr><td>识别率口径：图片工具箱宣传 98%；企业版口径 95%+</td><td>WPS 官方教程 / WPS 365</td><td><span class="ev a">A 级</span></td></tr>
+  </tbody>
+</table>
+<div class="note">对 TinyPress 的启示：开源 PaddleOCR（本地/离线、印刷+手写+表格）可对齐同类能力（P2）；翻译图片需外部翻译模型（可接本地小模型或用户自选 API）。</div>
+</div>
+
+<h2>六、视频转码技术：GPU 硬件加速引擎</h2>
+<div class="card">
+<ul class="tick">
+  <li><b>硬件加速编码</b>：WPS 365 官方「内置行业领先的硬件加速编解码引擎，支持 NVIDIA、Intel 等 GPU 加速技术，4K/8K 批量转换速度提升 10 倍」——即 NVENC/QSV 类 GPU 编码路线（与 FFmpeg 硬件加速能力同源，官方未点名 FFmpeg）。</li>
+  <li><b>格式覆盖</b>：MP4/AVI/MKV/MOV/FLV/WMV 等 100+ 音视频格式双向互转。</li>
+  <li><b>压缩策略</b>：官方教程「视频大的原因是分辨率高、码率高，压缩就是降这些参数」——降分辨率 + 降码率 + 高压缩率编码；提供高/中/低三档。</li>
+  <li><b>会员边界</b>：1080P 以上清晰度、高级品质档位需会员；基础操作免费。</li>
+  <li><b>企业 AI</b>：智能剪辑、自动字幕、视频转音频（MP3/WAV）、长视频摘要/转写、AI 纪要——商业旗舰版 599 元/人/年，单视频上限 4 小时。</li>
+</ul>
+<div class="note">对 TinyPress 的启示：TinyPress v0.2.0 已实现同样的硬件加速闭环（NVENC/QSV/VideoToolbox 探测 + 软件回退），且「目标体积精确逼近」强于 WPS 等级制；100+ 容器转换仅需扩展 FFmpeg 封装参数（P0）。</div>
+</div>
+
+<h2>七、架构推断与 TinyPress 对照（结论性）</h2>
+<div class="grid2">
+<div class="card">
+<h3>7.1 WPS 技术画像（一句话）</h3>
+<p><b>自研端侧引擎（分层/分区/GPU 加速）+ TensorFlow 系 AI 模型 + 会员/云网关</b>；AI 能力本地云端双模式，企业级 AI 走云。</p>
+<h3>7.2 TinyPress 技术画像（现状）</h3>
+<p><b>开源引擎全家桶（FFmpeg/mozjpeg/pngquant/libwebp/libavif）+ 本地批处理 + 硬件加速闭环</b>；无 AI、无云、无会员墙。</p>
+</div>
+<div class="card">
+<h3>7.3 关键差距（按技术）</h3>
+<table>
+  <thead><tr><th>能力</th><th>WPS 技术</th><th>TinyPress 开源对应</th></tr></thead>
+  <tbody>
+    <tr><td>AI 分区压缩</td><td>目标区域提取+融合（专利）</td><td>显著性检测 + 分区量化（P2）</td></tr>
+    <tr><td>抠图</td><td>全局+局部分割（专利）</td><td>rembg / U²-Net ONNX（P2）</td></tr>
+    <tr><td>OCR</td><td>TensorFlow/TFLite（官方）</td><td>PaddleOCR 本地（P2）</td></tr>
+    <tr><td>视频硬件加速</td><td>NVENC/QSV（官方口径）</td><td><span class="ev a">已实现</span>（v0.2.0）</td></tr>
+    <tr><td>100+ 容器转换</td><td>硬件加速引擎（官方口径）</td><td>FFmpeg 封装扩展（P0）</td></tr>
+    <tr><td>字幕/AI 剪辑</td><td>云端 AI（企业版）</td><td>Whisper 本地（P2，剪辑暂缓）</td></tr>
+  </tbody>
+</table>
+</div>
+</div>
+<div class="card">
+<h3>7.4 对重新定位的三条技术结论</h3>
+<ul class="tick">
+  <li><b>压缩技术代差可复制</b>：WPS 的「分区保真 AI 压缩」本质=显著性提取+分区量化，开源完全可落地——TinyPress 不输技术，只差功能面。</li>
+  <li><b>TinyPress 已有一项超越</b>：目标体积精确逼近（CRF 二分 + 硬件码率迭代）强于 WPS 等级制；且全本地、无会员限次、无上传。</li>
+  <li><b>AI 能力全部有开源等价物</b>：抠图（rembg）、OCR（PaddleOCR）、字幕（Whisper）均合法可落地；「AI 压缩」可用显著性检测先行实验。</li>
+</ul>
+</div>
+
+<div class="divider" style="border-top:1px dashed var(--line);margin:26px 0;"></div>
+<h3>附录：证据来源</h3>
+<ul class="src">
+  <li>金山办公图像处理专利（目标区域提取+融合）：toutiao.com/group/7431025242648183305（转金融界，2024-10）</li>
+  <li>金山办公「抠图方法、装置」专利 CN202610692261.7：zhuanli.tianyancha.com/c561da69718b9db35634678ac16f6e3b</li>
+  <li>WPS OCR 用 TensorFlow/TensorFlow Lite（官方）：wps.com/academy/what-is-the-ocr-feature-in-wps-office/about-wps/1863224/</li>
+  <li>金山办公 × 华南理工金连文团队 OCR 合作：中国知识产权报专利周刊 sz.iprchn.com/dataFile/.../2024090405.pdf</li>
+  <li>WPS 365 MRC 分层压缩/JBIG2/签名保真：365.wps.cn/content/0befd90f17d849149c147707c0a4ab8a.html、279b9c44a2b4448aabcf73a36b03dd5c.html</li>
+  <li>WPS 视频 GPU 硬件加速（NVIDIA/Intel，10 倍）：365.wps.cn/content/9fa42b76b51c435b8a942c2d2f046acb.html</li>
+  <li>WPS 视频压缩原理（降分辨率/码率）：wps.cn/article/ban-gong-ji-qiao-wps-2026-Ihah8IEJ.html</li>
+  <li>AI 压缩主观质量 +30%：plus.wps.cn/blog/p116079.html</li>
+  <li>改进型 JPEG 编码器观察：g.pconline.com.cn/ask/41278.html</li>
+  <li>WPS 图片在线抠图（3 秒透明底）：photo.wps.cn/cutout</li>
+</ul>
+
+</div>
+</body>
+</html>

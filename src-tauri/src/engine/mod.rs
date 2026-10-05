@@ -1,3 +1,4 @@
+pub mod edit;
 pub mod image;
 pub mod queue;
 pub mod video;
@@ -13,6 +14,8 @@ use self::queue::JobState;
 pub struct Output {
     pub output_path: PathBuf,
     pub output_size: u64,
+    /// 源已满足目标大小、未重新编码（输出即源文件）
+    pub skipped: bool,
 }
 
 /// 命名模板占位符：
@@ -69,12 +72,16 @@ pub fn resolve_output_path(
 /// 内部完成：kind/ext 推导 → 输出路径解析 → 置 running → 调用视频/图片引擎 → 标记 done/error。
 /// 返回最终 JobState（不写全局 store，由调用方负责入队、进度事件与收尾写入）。
 /// cancel 置位后任务中断（返回 cancelled 语义由调用方处理）。
+/// v0.3.0 扩展：image_edit（图片批量编辑）、container（视频容器转换）、audio_only（音轨提取）。
 pub async fn run_compression(
     mut job: JobState,
     preset: &Preset,
     output_dir: Option<&Path>,
     rename: Option<&str>,
     edit: Option<&video::EditOptions>,
+    image_edit: Option<&edit::ImageEditOptions>,
+    container: Option<&str>,
+    audio_only: Option<&str>,
     cancel: &std::sync::atomic::AtomicBool,
     mut on_progress: impl FnMut(u8),
 ) -> JobState {
@@ -83,19 +90,38 @@ pub async fn run_compression(
     on_progress(5);
 
     let input = PathBuf::from(&job.input_path);
+    // 视频容器白名单（不重编码优先；webm 走 VP9 回退）
+    let container = container
+        .map(|c| c.to_ascii_lowercase())
+        .filter(|c| matches!(c.as_str(), "mp4" | "mkv" | "avi" | "webm" | "mov" | "flv" | "ts"))
+        .unwrap_or_else(|| "mp4".to_string());
     let (kind, ext) = match preset.kind.as_str() {
-        "video" => ("video", "mp4"),
+        "video" => {
+            let ext = match audio_only {
+                Some("wav") => "wav",
+                Some(_) => "mp3",
+                None => container.as_str(),
+            }
+            .to_string();
+            ("video", ext)
+        }
         "image" => {
-            let ext = preset
-                .image
-                .as_ref()
-                .map(|i| match i.format.as_str() {
-                    "png" => "png",
-                    "webp" => "webp",
-                    "avif" => "avif",
-                    _ => "jpg",
-                })
-                .unwrap_or("jpg");
+            let ext = if let Some(ie) = image_edit {
+                // 图片编辑模式：输出格式跟随编辑参数（缺省保持源扩展名）
+                edit::output_ext(&input, ie.format.as_deref())
+            } else {
+                preset
+                    .image
+                    .as_ref()
+                    .map(|i| match i.format.as_str() {
+                        "png" => "png",
+                        "webp" => "webp",
+                        "avif" => "avif",
+                        _ => "jpg",
+                    })
+                    .unwrap_or("jpg")
+                    .to_string()
+            };
             ("image", ext)
         }
         other => {
@@ -105,7 +131,7 @@ pub async fn run_compression(
         }
     };
 
-    let output = resolve_output_path(&input, kind, ext, output_dir, rename);
+    let output = resolve_output_path(&input, kind, &ext, output_dir, rename);
     let max_bitrate_kbps = preset
         .constraints
         .as_ref()
@@ -118,44 +144,61 @@ pub async fn run_compression(
         .and_then(|c| c.get("max_size_kb"))
         .and_then(|v| v.as_u64());
     let result = match preset.kind.as_str() {
-        "video" => match preset.video.clone() {
-            Some(params) => {
-                if let Some(kb) = max_size_kb {
-                    // 目标大小压缩（朋友圈 ≤25MB 等）：二分逼近，兑现预设语义
-                    video::compress_to_size(
-                        &input,
-                        &output,
-                        &params,
-                        preset.filters.as_ref(),
-                        max_bitrate_kbps,
-                        kb,
-                        edit,
-                        cancel,
-                        &mut on_progress,
-                    )
-                    .await
-                } else {
-                    video::compress(
-                        &input,
-                        &output,
-                        &params,
-                        preset.filters.as_ref(),
-                        max_bitrate_kbps,
-                        edit,
-                        cancel,
-                        &mut on_progress,
-                    )
-                    .await
+        "video" => {
+            if let Some(a) = audio_only {
+                // 音轨提取（mp3/wav）：不转码画面
+                video::extract_audio(&input, &output, a, cancel).await
+            } else if container != "mp4" {
+                // 容器转换：优先 -c copy 不重编码，失败自动回退转码
+                video::remux(&input, &output, &container).await
+            } else {
+                match preset.video.clone() {
+                    Some(params) => {
+                        if let Some(kb) = max_size_kb {
+                            // 目标大小压缩（朋友圈 ≤25MB 等）：二分逼近，兑现预设语义
+                            video::compress_to_size(
+                                &input,
+                                &output,
+                                &params,
+                                preset.filters.as_ref(),
+                                max_bitrate_kbps,
+                                kb,
+                                edit,
+                                cancel,
+                                &mut on_progress,
+                            )
+                            .await
+                        } else {
+                            video::compress(
+                                &input,
+                                &output,
+                                &params,
+                                preset.filters.as_ref(),
+                                max_bitrate_kbps,
+                                edit,
+                                cancel,
+                                &mut on_progress,
+                            )
+                            .await
+                        }
+                    }
+                    None => Err("预设缺少视频参数".to_string()),
                 }
             }
-            None => Err("预设缺少视频参数".to_string()),
-        },
-        "image" => match preset.image.clone() {
-            Some(params) => {
-                image::compress(&input, &output, &params, &mut on_progress).await
+        }
+        "image" => {
+            if let Some(ie) = image_edit {
+                // 图片批量编辑模式（尺寸/旋转/裁剪/水印）：纯编辑，不压缩
+                edit::edit(&input, &output, ie, &mut on_progress).await
+            } else {
+                match preset.image.clone() {
+                    Some(params) => {
+                        image::compress(&input, &output, &params, &mut on_progress).await
+                    }
+                    None => Err("预设缺少图片参数".to_string()),
+                }
             }
-            None => Err("预设缺少图片参数".to_string()),
-        },
+        }
         _ => unreachable!(),
     };
 
@@ -165,9 +208,15 @@ pub async fn run_compression(
             job.progress = 100;
             job.output_size = Some(out.output_size);
             job.output_path = Some(out.output_path.to_string_lossy().into_owned());
-            // 治理「压缩后变大」：输出未小于源 → 非致命提示（用户感知「没达到预期」的主因之一）
-            if job.input_size > 0 && out.output_size >= job.input_size {
-                let ratio = ((out.output_size as f64 / job.input_size as f64) * 100.0).round() as u64;
+            if out.skipped {
+                // 源已满足目标大小：未重新编码，直接提示（避免「越压越大」）
+                job.warning = Some(
+                    "源文件已满足大小要求，未重新压缩（直接使用原文件）".to_string(),
+                );
+            } else if job.input_size > 0 && out.output_size >= job.input_size {
+                // 治理「压缩后变大」：输出未小于源 → 非致命提示（用户感知「没达到预期」的主因之一）
+                let ratio =
+                    ((out.output_size as f64 / job.input_size as f64) * 100.0).round() as u64;
                 job.warning = Some(format!(
                     "输出为源的 {ratio}%（未变小），源文件可能已是最优压缩；建议改用带体积上限的预设（如「微信朋友圈 ≤25MB」）"
                 ));
@@ -395,7 +444,10 @@ mod tests {
             note: None,
         };
         let cancel = std::sync::atomic::AtomicBool::new(false);
-        let out = run_compression(job, &preset, Some(out_dir), None, None, &cancel, |_| {}).await;
+        let out = run_compression(
+            job, &preset, Some(out_dir), None, None, None, None, None, &cancel, |_| {},
+        )
+        .await;
         assert_eq!(out.status, "done", "err={:?}", out.error);
         assert!(
             out.warning.is_some(),
@@ -449,7 +501,10 @@ mod tests {
             note: None,
         };
         let cancel = std::sync::atomic::AtomicBool::new(false);
-        let out = run_compression(job, &preset, Some(out_dir), None, None, &cancel, |_| {}).await;
+        let out = run_compression(
+            job, &preset, Some(out_dir), None, None, None, None, None, &cancel, |_| {},
+        )
+        .await;
         assert_eq!(out.status, "done", "err={:?}", out.error);
         assert!(
             out.warning.is_some(),
