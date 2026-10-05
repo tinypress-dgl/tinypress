@@ -145,7 +145,8 @@ pub fn get_engine_info() -> EngineInfo {
         ("mozjpeg", locator.check("cjpeg")),
         ("pngquant", locator.check("pngquant")),
         ("libwebp", locator.check("cwebp")),
-        ("libavif", locator.check("avifenc")),
+        // AVIF 现由随包 ffmpeg（libaom-av1）实现，不再依赖 avifenc（其与捆绑库 ABI 不匹配）
+        ("libavif", ffmpeg_ok),
     ]
     .into_iter()
     .map(|(k, v)| (k.to_string(), v))

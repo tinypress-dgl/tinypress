@@ -220,31 +220,38 @@ async fn webp(
     finish(output).await
 }
 
-/// libavif：avifenc 支持 png/jpeg 输入。
-/// 质量映射：avifenc --qscale 接受 0-63（0=最好），把用户 0-100 质量档线性映射到 0-63，
-/// 修复旧版直接把 quality=80 传给 --qscale 越界的问题。
+/// AVIF 引擎（libavif 语义，ffmpeg 实现）：
+/// 历史缺陷——Linux deb 捆绑的 avifenc 链接 libavif.so.16 而捆绑库为 .15（ABI 不匹配），
+/// 导致 AVIF 压缩在 Linux 上实际不可用（用户机器同款问题，实测退出码 127）。
+/// 修复：改用随包捆绑的 ffmpeg（libaom-av1 + avif muxer，-still-picture 1），
+/// 跨平台确定可用，参数公开（libaom CRF 0-63 语义与 avifenc qscale 一致）。
 async fn avif(
     input: &Path,
     output: &Path,
     locator: &BinaryLocator,
     quality: u8,
 ) -> Result<Output, String> {
-    let avifenc = locator
-        .find("avifenc")
-        .ok_or_else(|| "未找到 avifenc（libavif）二进制".to_string())?;
+    let ffmpeg = locator
+        .find("ffmpeg")
+        .ok_or_else(|| "未找到 ffmpeg 二进制".to_string())?;
     let q = quality.clamp(0, 100) as u64;
-    let qscale = (63u64.saturating_mul(100 - q) / 100).clamp(0, 63);
-    let st = Command::new(&avifenc)
+    let crf = (63u64.saturating_mul(100 - q) / 100).clamp(0, 63);
+    let st = Command::new(&ffmpeg)
         .args([
-            "--min",
-            "0",
-            "--max",
-            "63",
-            "--qscale",
-            &qscale.to_string(),
-            "--speed",
-            "6",
+            "-y",
+            "-i",
             input.to_str().ok_or("路径非法")?,
+            "-c:v",
+            "libaom-av1",
+            "-crf",
+            &crf.to_string(),
+            "-still-picture",
+            "1",
+            "-cpu-used",
+            "6",
+            "-pix_fmt",
+            "yuv420p",
+            "-an",
             output.to_str().ok_or("路径非法")?,
         ])
         .stderr(Stdio::null())
@@ -252,7 +259,7 @@ async fn avif(
         .await
         .map_err(|e| e.to_string())?;
     if !st.success() {
-        return Err(format!("avifenc 退出码: {:?}", st.code()));
+        return Err(format!("AVIF（libaom-av1）编码退出码: {:?}", st.code()));
     }
     finish(output).await
 }
@@ -260,3 +267,73 @@ async fn avif(
 // 保持 PathBuf 导入被使用
 #[allow(dead_code)]
 fn _sig(_: PathBuf) {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    fn verify_dir() -> PathBuf {
+        Path::new(
+            "/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/verify",
+        )
+        .to_path_buf()
+    }
+    fn corpus(name: &str) -> PathBuf {
+        Path::new(
+            "/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/corpus",
+        )
+        .join(name)
+    }
+
+    /// 集成实测：pngquant 质量透传——同源 q80 输出应显著大于 q60
+    /// （旧版硬编码 --quality=60-85 时两个档位输出相同，此测试保证修复生效）
+    #[tokio::test]
+    #[ignore = "集成实测：需要 pngquant 在 PATH"]
+    async fn pngquant_quality_passthrough() {
+        let input = corpus("photo_river.png");
+        assert!(input.exists(), "缺少素材 {}", input.display());
+        let out80 = verify_dir().join("out_q80.png");
+        let out60 = verify_dir().join("out_q60.png");
+        let _ = std::fs::remove_file(&out80);
+        let _ = std::fs::remove_file(&out60);
+        let locator = BinaryLocator;
+        pngquant_run(&input, &out80, &locator, 80)
+            .await
+            .unwrap_or_else(|e| panic!("q80 失败: {e}"));
+        pngquant_run(&input, &out60, &locator, 60)
+            .await
+            .unwrap_or_else(|e| panic!("q60 失败: {e}"));
+        let s80 = std::fs::metadata(&out80).unwrap().len();
+        let s60 = std::fs::metadata(&out60).unwrap().len();
+        assert!(s80 > s60, "q80={s80}B 应大于 q60={s60}B（质量透传未生效）");
+        println!("[实测] pngquant 透传: q80={}B q60={}B", s80, s60);
+    }
+
+    /// 集成实测：AVIF qscale 0-63 线性映射——
+    /// 高质量档（q80 → qscale 13）输出应大于低质量档（q10 → qscale 57）
+    #[tokio::test]
+    #[ignore = "集成实测：需要 avifenc 在 PATH"]
+    async fn avif_qscale_mapping() {
+        let input = corpus("photo_dog.jpg");
+        assert!(input.exists(), "缺少素材 {}", input.display());
+        let out_hi = verify_dir().join("out_q80.avif");
+        let out_lo = verify_dir().join("out_q10.avif");
+        let _ = std::fs::remove_file(&out_hi);
+        let _ = std::fs::remove_file(&out_lo);
+        let locator = BinaryLocator;
+        avif(&input, &out_hi, &locator, 80)
+            .await
+            .unwrap_or_else(|e| panic!("avif q80 失败: {e}"));
+        avif(&input, &out_lo, &locator, 10)
+            .await
+            .unwrap_or_else(|e| panic!("avif q10 失败: {e}"));
+        let s_hi = std::fs::metadata(&out_hi).unwrap().len();
+        let s_lo = std::fs::metadata(&out_lo).unwrap().len();
+        assert!(
+            s_hi > s_lo,
+            "q80={s_hi}B 应大于 q10={s_lo}B（qscale 映射失效）"
+        );
+        println!("[实测] AVIF qscale 映射: q80={}B q10={}B", s_hi, s_lo);
+    }
+}

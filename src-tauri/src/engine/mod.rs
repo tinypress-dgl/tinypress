@@ -341,3 +341,124 @@ impl BinaryLocator {
             .unwrap_or(false)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::engine::queue::JobParams;
+    use crate::presets::VideoParams;
+    use serde_json::json;
+
+    /// 集成实测：复现「CRF 预设对低码率源膨胀」——1MB 的 bbb 片段经
+    /// bilibili-high（crf23.5 slow maxrate3000k）输出约 3.9MB，
+    /// run_compression 必须生成「输出比源大」warning（而非静默成功）
+    #[tokio::test]
+    #[ignore = "集成实测：需要 ffmpeg 在 PATH"]
+    async fn video_bigger_output_raises_warning() {
+        let input = Path::new(
+            "/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/corpus/vid_bbb_1080p10s.mp4",
+        );
+        assert!(input.exists(), "缺少素材 {}", input.display());
+        let out_dir = Path::new(
+            "/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/verify",
+        );
+        let input_size = std::fs::metadata(input).unwrap().len();
+        let params = JobParams {
+            preset_id: "bilibili-high".into(),
+            ..Default::default()
+        };
+        let job = JobState::new(
+            "verify-bbb-warning".into(),
+            input.to_string_lossy().into_owned(),
+            "bilibili-high".into(),
+            input_size,
+            params,
+        );
+        let preset = Preset {
+            id: "bilibili-high".into(),
+            name: "B站 高清 1080p".into(),
+            platform: "bilibili".into(),
+            kind: "video".into(),
+            tags: vec![],
+            constraints: Some(json!({ "max_bitrate_kbps": 3000 })),
+            video: Some(VideoParams {
+                codec: "libx264".into(),
+                crf: 23.5,
+                preset: "slow".into(),
+                level: Some("4.1".into()),
+                keyint: Some(590),
+                pix_fmt: None,
+                audio: None,
+            }),
+            image: None,
+            filters: None,
+            note: None,
+        };
+        let cancel = std::sync::atomic::AtomicBool::new(false);
+        let out = run_compression(job, &preset, Some(out_dir), None, None, &cancel, |_| {}).await;
+        assert_eq!(out.status, "done", "err={:?}", out.error);
+        assert!(
+            out.warning.is_some(),
+            "低码率源膨胀时必须触发变大 warning，实际 warning={:?}",
+            out.warning
+        );
+        println!("[实测] 变大 warning 触发: {}", out.warning.as_deref().unwrap());
+    }
+
+    /// 集成实测：复现「自由 q80 对已压缩 JPEG 膨胀」——photo_river.jpg（360KB，已压缩）
+    /// 经 mozjpeg q80 输出约 384KB（104.9%），必须触发变大 warning
+    #[tokio::test]
+    #[ignore = "集成实测：需要 cjpeg 在 PATH"]
+    async fn image_bigger_output_raises_warning() {
+        use crate::presets::ImageParams;
+        let input = Path::new(
+            "/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/corpus/photo_river.jpg",
+        );
+        assert!(input.exists(), "缺少素材 {}", input.display());
+        let out_dir = Path::new(
+            "/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/verify",
+        );
+        let input_size = std::fs::metadata(input).unwrap().len();
+        let params = JobParams {
+            preset_id: "photo-80".into(),
+            ..Default::default()
+        };
+        let job = JobState::new(
+            "verify-jpg-warning".into(),
+            input.to_string_lossy().into_owned(),
+            "photo-80".into(),
+            input_size,
+            params,
+        );
+        let preset = Preset {
+            id: "photo-80".into(),
+            name: "通用图片（自由质量）".into(),
+            platform: "generic".into(),
+            kind: "image".into(),
+            tags: vec![],
+            constraints: None,
+            video: None,
+            image: Some(ImageParams {
+                format: "jpeg".into(),
+                engine: "mozjpeg".into(),
+                quality: Some(80),
+                max_size_kb: None,
+                strip_metadata: true,
+            }),
+            filters: None,
+            note: None,
+        };
+        let cancel = std::sync::atomic::AtomicBool::new(false);
+        let out = run_compression(job, &preset, Some(out_dir), None, None, &cancel, |_| {}).await;
+        assert_eq!(out.status, "done", "err={:?}", out.error);
+        assert!(
+            out.warning.is_some(),
+            "已压缩 JPEG 经 mozjpeg q80 膨胀时必须触发变大 warning，实际 warning={:?}",
+            out.warning
+        );
+        println!(
+            "[实测] 图片变大 warning 触发: 源 {input_size}B -> {}B",
+            out.output_size.unwrap_or(0)
+        );
+    }
+}

@@ -832,4 +832,59 @@ mod tests {
         let joined = args.join(" ");
         assert!(!joined.contains("-vf"), "{joined}");
     }
+
+    /// 集成实测（默认跳过；显式跑：cargo test -- --ignored，需要引擎二进制在 PATH）：
+    /// 「朋友圈 ≤25MB」语义——47MB 源必须压到 ≤25MB，验证 compress_to_size 二分闭环
+    #[tokio::test]
+    #[ignore = "集成实测：需要 ffmpeg 在 PATH"]
+    async fn compress_to_size_reaches_target_25mb() {
+        let root = Path::new(
+            "/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/verify",
+        );
+        let input = root.join("big.mp4");
+        assert!(input.exists(), "缺少素材 {}", input.display());
+        let output = root.join("out_size25.mp4");
+        let _ = std::fs::remove_file(&output);
+        let v = VideoParams {
+            codec: "libx264".into(),
+            crf: 23.0,
+            preset: "medium".into(),
+            level: None,
+            keyint: Some(250),
+            pix_fmt: None,
+            audio: None,
+        };
+        let cancel = std::sync::atomic::AtomicBool::new(false);
+        let peak = std::sync::atomic::AtomicU8::new(0);
+        let out = compress_to_size(
+            &input,
+            &output,
+            &v,
+            None,
+            None,
+            25 * 1024,
+            None,
+            &cancel,
+            |p| {
+                let _ = peak.fetch_max(p, std::sync::atomic::Ordering::Relaxed);
+            },
+        )
+        .await
+        .unwrap_or_else(|e| panic!("compress_to_size 失败: {e}"));
+        let limit = 25u64 * 1024 * 1024;
+        assert!(
+            out.output_size <= limit,
+            "输出 {} 超出 25MB 限制",
+            out.output_size
+        );
+        assert!(out.output_size > 0);
+        let src = std::fs::metadata(&input).unwrap().len();
+        println!(
+            "[实测] 25MB目标: 源 {:.1}MB -> 输出 {:.1}MB (ratio {:.1}%), 峰值进度 {}",
+            src as f64 / 1048576.0,
+            out.output_size as f64 / 1048576.0,
+            out.output_size as f64 / src as f64 * 100.0,
+            peak.load(std::sync::atomic::Ordering::Relaxed)
+        );
+    }
 }
