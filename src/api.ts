@@ -70,6 +70,21 @@ export function compressFiles(req: CompressRequest): Promise<QueueItem[]> {
   return invoke<QueueItem[]>("compress_files", { request: req });
 }
 
+/** 取消任务：queued 直接置 cancelled；running 中断 ffmpeg 子进程 */
+export function cancelJob(id: string): Promise<void> {
+  return invoke("cancel_job", { id });
+}
+
+/** 重试失败/已取消任务（按原参数重新入队） */
+export function retryJob(id: string): Promise<void> {
+  return invoke("retry_job", { id });
+}
+
+/** 读取当前队列（含历史；重启恢复的未完成任务为 queued） */
+export function getQueue(): Promise<QueueItem[]> {
+  return invoke<QueueItem[]>("get_queue");
+}
+
 /** 文件夹监控配置（目录 + 预设 + 输出目录 + 命名模板） */
 export interface WatchRequest {
   dir: string;

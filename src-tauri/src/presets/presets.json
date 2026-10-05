@@ -245,6 +245,38 @@
         "strip_metadata": true
       },
       "note": "常见报名/上传场景 200KB 限制。"
+    },
+    {
+      "id": "webp-balance",
+      "name": "通用 WebP 均衡（≤300KB）",
+      "platform": "generic",
+      "kind": "image",
+      "tags": ["daily", "web"],
+      "constraints": { "max_size_kb": 300 },
+      "image": {
+        "format": "webp",
+        "engine": "libwebp",
+        "quality": 80,
+        "max_size_kb": 300,
+        "strip_metadata": true
+      },
+      "note": "WebP 兼容 Chrome/Edge/Firefox/微信内置浏览器；体积约为同画质 JPEG 的 70-80%，适合网页与社媒配图。"
+    },
+    {
+      "id": "avif-high",
+      "name": "通用 AVIF 高质量（≤500KB）",
+      "platform": "generic",
+      "kind": "image",
+      "tags": ["daily", "web"],
+      "constraints": { "max_size_kb": 500 },
+      "image": {
+        "format": "avif",
+        "engine": "libavif",
+        "quality": 75,
+        "max_size_kb": 500,
+        "strip_metadata": true
+      },
+      "note": "AVIF 同视觉质量下比 JPEG 小约 50%（实测 dog 图 127KB vs mozjpeg 309KB）；编码较慢，适合追求极致体积的场景。"
     }
   ]
 }

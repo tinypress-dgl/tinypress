@@ -1,15 +1,15 @@
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State};
 
-use crate::engine::queue::{JobState, JobStore};
+use crate::engine::queue::{JobParams, JobState, JobStore};
 use crate::engine::watch::{self, WatchEvents, WatchHandle, WatchOptions};
-use crate::engine::BinaryLocator;
+use crate::engine::{BinaryLocator, GpuKind};
 use crate::presets::{self, Preset};
 
 /// 自定义预设文件位置：应用配置目录下 custom-presets.json
@@ -150,12 +150,12 @@ pub fn get_engine_info() -> EngineInfo {
     .into_iter()
     .map(|(k, v)| (k.to_string(), v))
     .collect();
-    let encoders = locator.encoders().unwrap_or_default();
+    // 硬件加速 = 「ffmpeg 构建含该编码器」 AND 「本机真实 GPU 可用」。
+    // 旧版仅做字符串匹配，无 GPU 机器也会误报可用；现改为真实探测。
     let hardware = HardwareInfo {
-        nvenc: encoders.contains("h264_nvenc") || encoders.contains("hevc_nvenc"),
-        qsv: encoders.contains("h264_qsv") || encoders.contains("hevc_qsv"),
-        videotoolbox: encoders.contains("h264_videotoolbox")
-            || encoders.contains("hevc_videotoolbox"),
+        nvenc: locator.gpu_available(GpuKind::Nvenc),
+        qsv: locator.gpu_available(GpuKind::Qsv),
+        videotoolbox: locator.gpu_available(GpuKind::Videotoolbox),
     };
     EngineInfo {
         ffmpeg_ok,
@@ -209,11 +209,60 @@ pub fn check_update(app: AppHandle) -> Result<UpdateInfo, String> {
     Ok(UpdateInfo { current, update_url })
 }
 
-/// 提交压缩任务：为每个文件启动独立后台任务，通过事件回报进度/结果
+/// 全局取消标志存储：job_id → 取消标志（running 任务置位后由引擎 kill ffmpeg）
+#[derive(Default)]
+pub struct CancelStore(pub Arc<Mutex<HashMap<String, Arc<AtomicBool>>>>);
+
+/// 队列持久化文件：应用配置目录下 jobs.json
+fn jobs_file(app: &AppHandle) -> Result<PathBuf, String> {
+    let dir = app
+        .path()
+        .app_config_dir()
+        .map_err(|e| format!("获取配置目录失败: {e}"))?;
+    Ok(dir.join("jobs.json"))
+}
+
+/// 把当前队列写入 jobs.json（done/error 保留为历史；queued/running 下次启动恢复为 queued）
+pub fn persist_jobs(app: &AppHandle, store: &Arc<JobStore>) {
+    let Ok(file) = jobs_file(app) else { return };
+    let snap = store.0.lock().unwrap().clone();
+    let text = serde_json::to_string(&snap).unwrap_or_default();
+    if let Some(dir) = file.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    let _ = std::fs::write(file, text);
+}
+
+/// 启动时恢复队列：running/queued → queued（等待用户重新开始）；done/error 保留展示
+pub fn load_jobs(app: &AppHandle, store: &Arc<JobStore>) {
+    let Ok(file) = jobs_file(app) else { return };
+    let raw = match std::fs::read_to_string(&file) {
+        Ok(s) => s,
+        Err(_) => return,
+    };
+    let mut jobs: Vec<JobState> = match serde_json::from_str(&raw) {
+        Ok(v) => v,
+        Err(_) => return,
+    };
+    for j in jobs.iter_mut() {
+        if j.status == "running" || j.status == "queued" {
+            j.status = "queued".into();
+            j.progress = 0;
+            j.output_size = None;
+            j.output_path = None;
+        }
+    }
+    *store.0.lock().unwrap() = jobs;
+}
+
+/// 提交压缩任务：入队后由信号量控制并发（默认 2 个 ffmpeg 并行），
+/// 失败可重试、重启可从 jobs.json 恢复（queued 任务重新开始）。
 #[tauri::command]
 pub fn compress_files(
     app: AppHandle,
     state: State<'_, Arc<JobStore>>,
+    semaphore: State<'_, Arc<tokio::sync::Semaphore>>,
+    cancels: State<'_, CancelStore>,
     request: CompressRequest,
 ) -> Result<Vec<JobState>, String> {
     let presets: HashMap<String, Preset> = presets::load()
@@ -231,22 +280,48 @@ pub fn compress_files(
         let input_size = std::fs::metadata(&item.input_path)
             .map(|m| m.len())
             .unwrap_or(0);
-        let job = JobState::new(id.clone(), item.input_path.clone(), item.preset_id, input_size);
+        let params = JobParams {
+            preset_id: item.preset_id.clone(),
+            output_dir: item.output_dir.clone(),
+            rename: item.rename.clone(),
+            edit: item.edit.clone(),
+        };
+        let job = JobState::new(
+            id.clone(),
+            item.input_path.clone(),
+            item.preset_id,
+            input_size,
+            params,
+        );
         state.0.lock().unwrap().push(job.clone());
         snapshots.push(job.clone());
 
+        let cancel = Arc::new(AtomicBool::new(false));
+        cancels.0.lock().unwrap().insert(id.clone(), cancel.clone());
+
         let app2 = app.clone();
         let store = state.inner().clone();
+        let sem = semaphore.inner().clone();
+        let cancels_inner = cancels.inner().0.clone();
         let out_dir = item.output_dir.clone().map(PathBuf::from);
         let rename = item.rename.clone();
         let edit = item.edit.clone();
         tokio::spawn(async move {
-            run_job(app2, store, job, preset, out_dir, rename, edit).await;
+            // 并发上限：acquire 到许可才开始执行（队列中等待的任务保持 queued）
+            let Ok(permit) = sem.acquire_owned().await else {
+                return;
+            };
+            run_job(
+                app2, store, job, preset, out_dir, rename, edit, cancel, permit, cancels_inner,
+            )
+            .await;
         });
     }
+    persist_jobs(&app, &state.inner());
     Ok(snapshots)
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn run_job(
     app: AppHandle,
     store: Arc<JobStore>,
@@ -255,7 +330,25 @@ async fn run_job(
     out_dir: Option<PathBuf>,
     rename: Option<String>,
     edit: Option<crate::engine::video::EditOptions>,
+    cancel: Arc<AtomicBool>,
+    permit: tokio::sync::OwnedSemaphorePermit,
+    cancels: Arc<Mutex<HashMap<String, Arc<AtomicBool>>>>,
 ) {
+    // 入队等待期间被取消：直接置 cancelled，不占用引擎
+    if cancel.load(Ordering::Relaxed) {
+        let mut cancelled_job = job.clone();
+        cancelled_job.status = "cancelled".into();
+        cancelled_job.progress = 0;
+        {
+            let mut guard = store.0.lock().unwrap();
+            if let Some(j) = guard.iter_mut().find(|j| j.id == job.id) {
+                *j = cancelled_job.clone();
+            }
+        }
+        let _ = app.emit("compress_done", cancelled_job);
+        persist_jobs(&app, &store);
+        return;
+    }
     {
         let mut guard = store.0.lock().unwrap();
         if let Some(j) = guard.iter_mut().find(|j| j.id == job.id) {
@@ -295,10 +388,20 @@ async fn run_job(
         out_dir.as_deref(),
         rename.as_deref(),
         edit.as_ref(),
+        &cancel,
         on_progress,
     )
     .await;
+    // 用户取消 → 引擎返回「任务已取消」错误 → 归一为 cancelled 状态（非 error）
+    if job.status == "error" && job.error.as_deref() == Some("任务已取消") {
+        job.status = "cancelled".into();
+        job.error = None;
+    }
+    let done_id = job.id.clone();
     finish_job(&app, &store, job);
+    persist_jobs(&app, &store);
+    cancels.lock().unwrap().remove(&done_id);
+    drop(permit);
 }
 
 fn finish_job(app: &AppHandle, store: &Arc<JobStore>, job: JobState) {
@@ -310,9 +413,135 @@ fn finish_job(app: &AppHandle, store: &Arc<JobStore>, job: JobState) {
     let _ = app.emit("compress_done", job);
 }
 
-/// 在文件管理器中显示文件（P1 完整实现；骨架直接返回成功）
+/// 取消任务：queued 直接置 cancelled；running 置位中断标志（引擎 kill ffmpeg）
 #[tauri::command]
-pub fn reveal_in_folder(_path: String) -> Result<(), String> {
+pub fn cancel_job(
+    app: AppHandle,
+    state: State<'_, Arc<JobStore>>,
+    cancels: State<'_, CancelStore>,
+    id: String,
+) -> Result<(), String> {
+    let store = state.inner().clone();
+    {
+        let mut guard = store.0.lock().unwrap();
+        if let Some(j) = guard.iter_mut().find(|j| j.id == id) {
+            if j.status == "queued" {
+                j.status = "cancelled".into();
+                let snap = j.clone();
+                drop(guard);
+                let _ = app.emit("compress_done", snap);
+                persist_jobs(&app, &store);
+                return Ok(());
+            }
+        }
+    }
+    if let Some(flag) = cancels.0.lock().unwrap().get(&id).cloned() {
+        flag.store(true, Ordering::Relaxed);
+    }
+    Ok(())
+}
+
+/// 重试失败/已取消任务：按持久化参数原样重新入队（复用原 job id 保持队列位置）
+#[tauri::command]
+pub async fn retry_job(
+    app: AppHandle,
+    state: State<'_, Arc<JobStore>>,
+    semaphore: State<'_, Arc<tokio::sync::Semaphore>>,
+    cancels: State<'_, CancelStore>,
+    id: String,
+) -> Result<(), String> {
+    let store = state.inner().clone();
+    let (job, preset, out_dir, rename, edit) = {
+        let guard = store.0.lock().unwrap();
+        let job = guard
+            .iter()
+            .find(|j| j.id == id)
+            .cloned()
+            .ok_or_else(|| "任务不存在".to_string())?;
+        if job.status != "error" && job.status != "cancelled" {
+            return Err("仅失败或已取消的任务可以重试".into());
+        }
+        let params = job
+            .params
+            .clone()
+            .ok_or_else(|| "该任务缺少重跑参数".to_string())?;
+        let preset = presets::load()
+            .into_iter()
+            .find(|p| p.id == params.preset_id)
+            .ok_or_else(|| "预设不存在或已被删除".to_string())?;
+        (job, preset, params.output_dir.map(PathBuf::from), params.rename, params.edit)
+    };
+    {
+        let mut guard = store.0.lock().unwrap();
+        if let Some(j) = guard.iter_mut().find(|j| j.id == id) {
+            j.status = "queued".into();
+            j.progress = 0;
+            j.error = None;
+            j.warning = None;
+        }
+    }
+    let cancel = Arc::new(AtomicBool::new(false));
+    cancels.0.lock().unwrap().insert(id.clone(), cancel.clone());
+    let app2 = app.clone();
+    let store2 = store.clone();
+    let sem = semaphore.inner().clone();
+    let cancels_inner = cancels.inner().0.clone();
+    tokio::spawn(async move {
+        let Ok(permit) = sem.acquire_owned().await else {
+            return;
+        };
+        run_job(
+            app2, store2, job, preset, out_dir, rename, edit, cancel, permit, cancels_inner,
+        )
+        .await;
+    });
+    persist_jobs(&app, &store);
+    Ok(())
+}
+
+/// 读取当前队列（含历史 done/error；重启恢复的未完成任务为 queued）
+#[tauri::command]
+pub fn get_queue(state: State<'_, Arc<JobStore>>) -> Vec<JobState> {
+    state.0.lock().unwrap().clone()
+}
+
+/// 在系统文件管理器中显示文件：
+/// Windows 资源管理器定位选中；macOS Finder 定位；Linux 打开所在目录
+#[tauri::command]
+pub fn reveal_in_folder(path: String) -> Result<(), String> {
+    let p = PathBuf::from(&path);
+    if !p.exists() {
+        return Err("文件不存在".into());
+    }
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .args(["/select,", &path])
+            .spawn()
+            .map_err(|e| format!("打开资源管理器失败: {e}"))?;
+        return Ok(());
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .args(["-R", &path])
+            .spawn()
+            .map_err(|e| format!("打开 Finder 失败: {e}"))?;
+        return Ok(());
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let dir = p
+            .parent()
+            .map(|d| d.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "/".to_string());
+        std::process::Command::new("xdg-open")
+            .arg(&dir)
+            .spawn()
+            .map_err(|e| format!("打开文件管理器失败: {e}"))?;
+        return Ok(());
+    }
+    #[allow(unreachable_code)]
     Ok(())
 }
 

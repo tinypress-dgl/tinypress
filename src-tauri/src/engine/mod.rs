@@ -68,12 +68,14 @@ pub fn resolve_output_path(
 /// 执行单个压缩任务（命令与文件夹监控共用）。
 /// 内部完成：kind/ext 推导 → 输出路径解析 → 置 running → 调用视频/图片引擎 → 标记 done/error。
 /// 返回最终 JobState（不写全局 store，由调用方负责入队、进度事件与收尾写入）。
+/// cancel 置位后任务中断（返回 cancelled 语义由调用方处理）。
 pub async fn run_compression(
     mut job: JobState,
     preset: &Preset,
     output_dir: Option<&Path>,
     rename: Option<&str>,
     edit: Option<&video::EditOptions>,
+    cancel: &std::sync::atomic::AtomicBool,
     mut on_progress: impl FnMut(u8),
 ) -> JobState {
     job.status = "running".into();
@@ -110,19 +112,41 @@ pub async fn run_compression(
         .and_then(|c| c.get("max_bitrate_kbps"))
         .and_then(|v| v.as_u64())
         .map(|v| v as u32);
+    let max_size_kb = preset
+        .constraints
+        .as_ref()
+        .and_then(|c| c.get("max_size_kb"))
+        .and_then(|v| v.as_u64());
     let result = match preset.kind.as_str() {
         "video" => match preset.video.clone() {
             Some(params) => {
-                video::compress(
-                    &input,
-                    &output,
-                    &params,
-                    preset.filters.as_ref(),
-                    max_bitrate_kbps,
-                    edit,
-                    &mut on_progress,
-                )
-                .await
+                if let Some(kb) = max_size_kb {
+                    // 目标大小压缩（朋友圈 ≤25MB 等）：二分逼近，兑现预设语义
+                    video::compress_to_size(
+                        &input,
+                        &output,
+                        &params,
+                        preset.filters.as_ref(),
+                        max_bitrate_kbps,
+                        kb,
+                        edit,
+                        cancel,
+                        &mut on_progress,
+                    )
+                    .await
+                } else {
+                    video::compress(
+                        &input,
+                        &output,
+                        &params,
+                        preset.filters.as_ref(),
+                        max_bitrate_kbps,
+                        edit,
+                        cancel,
+                        &mut on_progress,
+                    )
+                    .await
+                }
             }
             None => Err("预设缺少视频参数".to_string()),
         },
@@ -141,6 +165,13 @@ pub async fn run_compression(
             job.progress = 100;
             job.output_size = Some(out.output_size);
             job.output_path = Some(out.output_path.to_string_lossy().into_owned());
+            // 治理「压缩后变大」：输出未小于源 → 非致命提示（用户感知「没达到预期」的主因之一）
+            if job.input_size > 0 && out.output_size >= job.input_size {
+                let ratio = ((out.output_size as f64 / job.input_size as f64) * 100.0).round() as u64;
+                job.warning = Some(format!(
+                    "输出为源的 {ratio}%（未变小），源文件可能已是最优压缩；建议改用带体积上限的预设（如「微信朋友圈 ≤25MB」）"
+                ));
+            }
         }
         Err(e) => {
             job.status = "error".into();
@@ -230,5 +261,83 @@ impl BinaryLocator {
             .output()
             .ok()?;
         Some(String::from_utf8_lossy(&out.stdout).into_owned())
+    }
+}
+
+/// 硬件加速类型（真实 GPU 探测用）
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GpuKind {
+    Nvenc,
+    Qsv,
+    Videotoolbox,
+}
+
+impl GpuKind {
+    /// ffmpeg 编码器名（与 -encoders 输出比对用）
+    fn encoder_names(&self) -> &'static [&'static str] {
+        match self {
+            GpuKind::Nvenc => &["h264_nvenc", "hevc_nvenc"],
+            GpuKind::Qsv => &["h264_qsv", "hevc_qsv"],
+            GpuKind::Videotoolbox => &["h264_videotoolbox", "hevc_videotoolbox"],
+        }
+    }
+}
+
+impl BinaryLocator {
+    /// 真实 GPU 探测：替代旧版「ffmpeg -encoders 字符串匹配」——
+    /// 旧逻辑只看 ffmpeg 是否编译进编码器，沙箱无 GPU 也会误报「NVENC 可用」。
+    /// - NVENC：探测 nvidia-smi 可执行（Windows 标准安装路径 + PATH；Linux PATH）
+    /// - QSV：用 ffmpeg 试探初始化 qsv 设备（Intel 核显 + VAAPI 驱动）
+    /// - VideoToolbox：macOS 全机型内置（含 Intel Mac），按平台判定
+    pub fn gpu_available(&self, kind: GpuKind) -> bool {
+        // 前置：对应编码器必须存在于 ffmpeg 构建
+        let enc = self.encoders().unwrap_or_default();
+        let builtin = kind
+            .encoder_names()
+            .iter()
+            .any(|n| enc.contains(n));
+        if !builtin {
+            return false;
+        }
+        match kind {
+            GpuKind::Videotoolbox => cfg!(target_os = "macos"),
+            GpuKind::Nvenc => Self::nvidia_smi_exists(),
+            GpuKind::Qsv => Self::qsv_device_ok(),
+        }
+    }
+
+    fn nvidia_smi_exists() -> bool {
+        let candidates = [
+            // Windows 标准安装路径
+            "C:\\Program Files\\NVIDIA Corporation\\NVSMI\\nvidia-smi.exe",
+            "C:\\Windows\\System32\\nvidia-smi.exe",
+        ];
+        for c in candidates {
+            if std::path::Path::new(c).is_file() {
+                return true;
+            }
+        }
+        // PATH 探测（Linux / 已加入 PATH 的 Windows）
+        if let Some(path_env) = std::env::var_os("PATH") {
+            for dir in std::env::split_paths(&path_env) {
+                let cand = dir.join(bin_name("nvidia-smi"));
+                if cand.is_file() {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    fn qsv_device_ok() -> bool {
+        let Some(ffmpeg) = BinaryLocator.find("ffmpeg") else {
+            return false;
+        };
+        // 试探初始化 QSV 设备；失败（无 Intel 核显/无驱动）返回 false
+        std::process::Command::new(ffmpeg)
+            .args(["-init_hw_device", "qsv", "-f", "null", "-"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
     }
 }

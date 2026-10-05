@@ -23,7 +23,7 @@ fn map_nvenc_preset(p: &str) -> String {
 }
 
 /// 基础视频编辑选项（任务级，随 CompressItem 传入；全部可选）
-#[derive(Debug, Clone, Default, serde::Deserialize)]
+#[derive(Debug, Clone, Default, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct EditOptions {
     /// 截取起点（秒）
@@ -122,9 +122,45 @@ pub async fn detect_crop(input: &Path) -> Option<CropSpec> {
     last
 }
 
+/// 编码器分类：决定质量参数方言与失败回退策略
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum EncoderKind {
+    Software,
+    Nvenc,
+    Qsv,
+    Videotoolbox,
+}
+
+fn encoder_kind(codec: &str) -> EncoderKind {
+    if codec.contains("nvenc") {
+        EncoderKind::Nvenc
+    } else if codec.contains("qsv") {
+        EncoderKind::Qsv
+    } else if codec.contains("videotoolbox") {
+        EncoderKind::Videotoolbox
+    } else {
+        EncoderKind::Software
+    }
+}
+
+/// 硬件编码失败时的软件回退编码器（同代际：HEVC→libx265，其余→libx264）
+fn software_fallback(codec: &str) -> Option<&'static str> {
+    match encoder_kind(codec) {
+        EncoderKind::Software => None,
+        EncoderKind::Nvenc | EncoderKind::Qsv | EncoderKind::Videotoolbox => {
+            Some(if codec.contains("hevc") || codec.contains("265") {
+                "libx265"
+            } else {
+                "libx264"
+            })
+        }
+    }
+}
+
 /// 组装 FFmpeg 参数（预设 JSON 直接映射，无硬编码平台规则；
-/// 硬件编码器 NVENC/QSV 使用各自的质量与 GOP 参数方言；
+/// 硬件编码器 NVENC/QSV/VideoToolbox 使用各自的质量与 GOP 参数方言；
 /// max_bitrate_kbps 来自预设 constraints，输出 -maxrate/-bufsize 硬限码率；
+/// bitrate_kbps 为目标大小模式下的码率覆盖（硬件编码器迭代用）；
 /// edit/autocrop_spec 来自任务级编辑选项）
 #[allow(clippy::too_many_arguments)]
 fn build_args(
@@ -133,6 +169,7 @@ fn build_args(
     v: &VideoParams,
     filters: Option<&serde_json::Value>,
     max_bitrate_kbps: Option<u32>,
+    bitrate_kbps: Option<u32>,
     edit: Option<&EditOptions>,
     autocrop_spec: Option<&CropSpec>,
 ) -> Vec<String> {
@@ -147,26 +184,43 @@ fn build_args(
     ];
 
     let codec = v.codec.as_str();
-    let is_nvenc = codec.contains("nvenc");
-    let is_qsv = codec.contains("qsv");
+    let kind = encoder_kind(codec);
 
-    if is_nvenc {
-        // NVENC：-cq 代替 -crf；preset 映射到 p1-p7
-        args.push("-cq".into());
-        args.push(v.crf.to_string());
-        args.push("-preset".into());
-        args.push(map_nvenc_preset(&v.preset));
-    } else if is_qsv {
-        // QSV：-global_quality 代替 -crf；preset 兼容 x264 风格值
-        args.push("-global_quality".into());
-        args.push(v.crf.to_string());
-        args.push("-preset".into());
-        args.push(v.preset.clone());
-    } else {
-        args.push("-crf".into());
-        args.push(v.crf.to_string());
-        args.push("-preset".into());
-        args.push(v.preset.clone());
+    match kind {
+        EncoderKind::Nvenc => {
+            // NVENC：-cq 代替 -crf；preset 映射到 p1-p7
+            args.push("-cq".into());
+            args.push(v.crf.to_string());
+            args.push("-preset".into());
+            args.push(map_nvenc_preset(&v.preset));
+        }
+        EncoderKind::Qsv => {
+            // QSV：-global_quality 代替 -crf；preset 兼容 x264 风格值
+            args.push("-global_quality".into());
+            args.push(v.crf.to_string());
+            args.push("-preset".into());
+            args.push(v.preset.clone());
+        }
+        EncoderKind::Videotoolbox => {
+            // VideoToolbox：macOS 硬件编码；质量用 -q:v（0-100，越大越好）
+            // 目标大小模式由 bitrate_kbps 走 -b:v 码率控制
+            args.push("-q:v".into());
+            args.push((v.crf.clamp(0.0, 100.0) as u8).to_string());
+            args.push("-allow_sw".into());
+            args.push("1".into());
+        }
+        EncoderKind::Software => {
+            args.push("-crf".into());
+            args.push(v.crf.to_string());
+            args.push("-preset".into());
+            args.push(v.preset.clone());
+        }
+    }
+
+    if let Some(kbps) = bitrate_kbps {
+        // 目标大小模式：码率覆盖（硬件编码器迭代逼近体积）
+        args.push("-b:v".into());
+        args.push(format!("{kbps}k"));
     }
 
     if let Some(kbps) = max_bitrate_kbps {
@@ -178,7 +232,7 @@ fn build_args(
     }
 
     if let Some(level) = &v.level {
-        if !is_nvenc {
+        if kind != EncoderKind::Nvenc {
             args.push("-level".into());
             args.push(level.clone());
         }
@@ -264,36 +318,20 @@ async fn probe_duration(input: &Path) -> Option<f64> {
     Some(h * 3600.0 + m * 60.0 + s)
 }
 
-/// 视频压缩：spawn FFmpeg，解析 stderr 的 time= 输出实时进度（0-90 区间），完成后置 100
-pub async fn compress(
+/// 单次转码内核：spawn FFmpeg，解析 stderr 的 time= 输出实时进度（0-90 区间），
+/// 支持外部取消（cancel 置位后 kill 子进程）
+async fn run_encode(
     input: &Path,
-    output: &Path,
-    v: &VideoParams,
-    filters: Option<&serde_json::Value>,
-    max_bitrate_kbps: Option<u32>,
-    edit: Option<&EditOptions>,
+    _output: &Path,
+    args: Vec<String>,
+    cancel: &std::sync::atomic::AtomicBool,
     mut on_progress: impl FnMut(u8),
-) -> Result<Output, String> {
+) -> Result<(), String> {
     let locator = BinaryLocator;
     let ffmpeg = locator
         .find("ffmpeg")
         .ok_or_else(|| "未找到 ffmpeg 二进制（请检查 bins/ 目录）".to_string())?;
-
     let duration = probe_duration(input).await;
-    // 自动去黑边：先 cropdetect 探测（快，只解码 3 秒），再带入裁剪滤镜
-    let autocrop_spec = match edit.and_then(|e| e.autocrop.then_some(())) {
-        Some(()) => detect_crop(input).await,
-        None => None,
-    };
-    let args = build_args(
-        input,
-        output,
-        v,
-        filters,
-        max_bitrate_kbps,
-        edit,
-        autocrop_spec.as_ref(),
-    );
 
     let mut child = Command::new(&ffmpeg)
         .args(&args)
@@ -310,6 +348,11 @@ pub async fn compress(
     );
     let mut line = String::new();
     loop {
+        // 每读一行检查一次取消标志
+        if cancel.load(std::sync::atomic::Ordering::Relaxed) {
+            let _ = child.kill().await;
+            return Err("任务已取消".into());
+        }
         line.clear();
         let n = reader
             .read_line(&mut line)
@@ -331,6 +374,67 @@ pub async fn compress(
     if !status.success() {
         return Err(format!("ffmpeg 退出码: {:?}", status.code()));
     }
+    Ok(())
+}
+
+/// 视频压缩（CRF/CQ 质量模式）：spawn FFmpeg 并回报进度。
+/// - cancel 置位可随时中断；
+/// - 硬件编码失败自动回退到同代际软件编码（NVENC/QSV/VideoToolbox → x264/x265）。
+pub async fn compress(
+    input: &Path,
+    output: &Path,
+    v: &VideoParams,
+    filters: Option<&serde_json::Value>,
+    max_bitrate_kbps: Option<u32>,
+    edit: Option<&EditOptions>,
+    cancel: &std::sync::atomic::AtomicBool,
+    mut on_progress: impl FnMut(u8),
+) -> Result<Output, String> {
+    on_progress(5);
+    // 自动去黑边：先 cropdetect 探测（快，只解码 3 秒），再带入裁剪滤镜
+    let autocrop_spec = match edit.and_then(|e| e.autocrop.then_some(())) {
+        Some(()) => detect_crop(input).await,
+        None => None,
+    };
+    let args = build_args(
+        input,
+        output,
+        v,
+        filters,
+        max_bitrate_kbps,
+        None,
+        edit,
+        autocrop_spec.as_ref(),
+    );
+
+    let result = run_encode(input, output, args, cancel, &mut on_progress).await;
+    if result.is_err() {
+        // 用户取消 → 直接传播，不触发软件回退
+        if let Err(e) = &result {
+            if e == "任务已取消" {
+                return Err(e.clone());
+            }
+        }
+        // 硬件编码失败 → 软件回退一次（合法策略：失败降级，绝不静默出错）
+        if let Some(fallback) = software_fallback(&v.codec) {
+            let mut v_sw = v.clone();
+            v_sw.codec = fallback.to_string();
+            let sw_args = build_args(
+                input,
+                output,
+                &v_sw,
+                filters,
+                max_bitrate_kbps,
+                None,
+                edit,
+                autocrop_spec.as_ref(),
+            );
+            on_progress(50);
+            run_encode(input, output, sw_args, cancel, &mut on_progress).await?;
+        } else {
+            result?;
+        }
+    }
 
     let size = std::fs::metadata(output)
         .map_err(|e| format!("读取输出文件失败: {e}"))?
@@ -340,6 +444,166 @@ pub async fn compress(
         output_path: output.to_path_buf(),
         output_size: size,
     })
+}
+
+/// 视频目标大小压缩：兑现「朋友圈 ≤25MB」等预设 constraints.max_size_kb 语义。
+/// - 软件编码器（x264/x265）：veryfast 探测轮二分 CRF（体积随 CRF 单调递减），
+///   找到满足体积的最小 CRF 后用预设原 preset 做最终轮验证；
+/// - 硬件编码器（NVENC/QSV/VideoToolbox）：按目标码率迭代（-b:v），最多 4 轮；
+/// - 源文件已 ≤ 目标大小时直接转码一次，输出超限才进入逼近。
+pub async fn compress_to_size(
+    input: &Path,
+    output: &Path,
+    v: &VideoParams,
+    filters: Option<&serde_json::Value>,
+    max_bitrate_kbps: Option<u32>,
+    max_size_kb: u64,
+    edit: Option<&EditOptions>,
+    cancel: &std::sync::atomic::AtomicBool,
+    mut on_progress: impl FnMut(u8),
+) -> Result<Output, String> {
+    let max_bytes = max_size_kb.saturating_mul(1024);
+    if max_bytes == 0 {
+        return Err("目标大小不能为 0".into());
+    }
+    let autocrop_spec = match edit.and_then(|e| e.autocrop.then_some(())) {
+        Some(()) => detect_crop(input).await,
+        None => None,
+    };
+
+    // 先按预设参数转码一次：源 ≤ 目标且输出仍 ≤ 目标时直接完成（最高质量）
+    on_progress(8);
+    let first_args = build_args(
+        input, output, v, filters, max_bitrate_kbps, None, edit, autocrop_spec.as_ref(),
+    );
+    run_encode(input, output, first_args, cancel, &mut on_progress).await?;
+    let first_size = std::fs::metadata(output)
+        .map_err(|e| format!("读取输出文件失败: {e}"))?
+        .len();
+    if first_size <= max_bytes {
+        on_progress(100);
+        return Ok(Output {
+            output_path: output.to_path_buf(),
+            output_size: first_size,
+        });
+    }
+
+    match encoder_kind(&v.codec) {
+        EncoderKind::Software => {
+            // CRF 二分：体积随 CRF 单调递减，找「满足体积」的最小 CRF
+            let mut lo = v.crf;
+            let mut hi = 51.0f64;
+            let mut best_crf: Option<f64> = None;
+            for round in 0..6 {
+                let crf = if round == 0 { v.crf } else { (lo + hi) / 2.0 };
+                let mut v2 = v.clone();
+                v2.crf = crf;
+                // 探测轮用 veryfast 提速（仅 x264/x265 接受该 preset 风格值）
+                if (v2.codec.contains("x264") || v2.codec.contains("x265")) && round < 5 {
+                    v2.preset = "veryfast".into();
+                }
+                let args = build_args(
+                    input, output, &v2, filters, max_bitrate_kbps, None, edit, autocrop_spec.as_ref(),
+                );
+                run_encode(input, output, args, cancel, &mut on_progress).await?;
+                let size = std::fs::metadata(output)
+                    .map_err(|e| format!("读取输出文件失败: {e}"))?
+                    .len();
+                on_progress(15 + round as u8 * 12);
+                if size <= max_bytes {
+                    best_crf = Some(crf);
+                    hi = crf; // 尝试更高质量（更小 CRF）
+                } else {
+                    lo = crf + 1.0; // 需要更大 CRF 缩小体积
+                }
+                if lo > hi {
+                    break;
+                }
+            }
+            let crf = best_crf.ok_or_else(|| {
+                format!(
+                    "最低质量（CRF 51）仍超过 {max_size_kb}KB 限制（当前大小 {}KB）",
+                    std::fs::metadata(output).map(|m| m.len() / 1024).unwrap_or(0)
+                )
+            })?;
+            // 最终轮：用预设原 preset 验证（veryfast 同 CRF 下码率略高，需确认）
+            let mut vf = v.clone();
+            vf.crf = crf;
+            let final_args = build_args(
+                input, output, &vf, filters, max_bitrate_kbps, None, edit, autocrop_spec.as_ref(),
+            );
+            run_encode(input, output, final_args, cancel, &mut on_progress).await?;
+            let final_size = std::fs::metadata(output)
+                .map_err(|e| format!("读取输出文件失败: {e}"))?
+                .len();
+            if final_size > max_bytes {
+                // 保守再降一档质量
+                vf.crf = (crf + 2.0).min(51.0);
+                let retry_args = build_args(
+                    input, output, &vf, filters, max_bitrate_kbps, None, edit, autocrop_spec.as_ref(),
+                );
+                run_encode(input, output, retry_args, cancel, &mut on_progress).await?;
+            }
+            let size = std::fs::metadata(output)
+                .map_err(|e| format!("读取输出文件失败: {e}"))?
+                .len();
+            if size > max_bytes {
+                return Err(format!(
+                    "最终轮仍超过 {max_size_kb}KB 限制（当前大小 {}KB）",
+                    size / 1024
+                ));
+            }
+            on_progress(100);
+            Ok(Output {
+                output_path: output.to_path_buf(),
+                output_size: size,
+            })
+        }
+        _ => {
+            // 硬件编码器：按目标码率迭代（-b:v 对 NVENC/QSV/VideoToolbox 均有效）
+            let duration = probe_duration(input).await.unwrap_or(60.0).max(1.0);
+            let mut bitrate =
+                ((max_bytes as f64 * 8.0) / duration * 0.9 / 1024.0).max(100.0) as u32;
+            let mut best: Option<Output> = None;
+            for round in 0..4 {
+                let args = build_args(
+                    input, output, v, filters, max_bitrate_kbps, Some(bitrate), edit,
+                    autocrop_spec.as_ref(),
+                );
+                run_encode(input, output, args, cancel, &mut on_progress).await?;
+                let size = std::fs::metadata(output)
+                    .map_err(|e| format!("读取输出文件失败: {e}"))?
+                    .len();
+                on_progress(20 + round as u8 * 20);
+                if size <= max_bytes {
+                    best = Some(Output {
+                        output_path: output.to_path_buf(),
+                        output_size: size,
+                    });
+                    if round >= 1 {
+                        break; // 已收敛
+                    }
+                    bitrate = (bitrate as f64 * 1.25) as u32; // 尝试提升质量
+                } else {
+                    bitrate = (bitrate as f64 * 0.72) as u32;
+                    if bitrate < 100 {
+                        return Err(format!(
+                            "目标体积 {max_size_kb}KB 过小，硬件编码最低码率仍超限"
+                        ));
+                    }
+                }
+            }
+            if let Some(out) = best {
+                on_progress(100);
+                Ok(out)
+            } else {
+                Err(format!(
+                    "最低码率仍超过 {max_size_kb}KB 限制（当前大小 {}KB）",
+                    std::fs::metadata(output).map(|m| m.len() / 1024).unwrap_or(0)
+                ))
+            }
+        }
+    }
 }
 
 /// 从 ffmpeg stderr 行解析 `time=HH:MM:SS.xx`
@@ -389,6 +653,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let joined = args.join(" ");
         assert!(joined.contains("-c:v h264_nvenc"), "{joined}");
@@ -410,6 +675,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let joined = args.join(" ");
         assert!(joined.contains("-c:v hevc_qsv"), "{joined}");
@@ -424,6 +690,7 @@ mod tests {
             Path::new("in.mp4"),
             Path::new("out.mp4"),
             &params("libx264", 23.5, "slow"),
+            None,
             None,
             None,
             None,
@@ -447,6 +714,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let joined = args.join(" ");
         assert!(!joined.contains("-level"), "{joined}");
@@ -460,6 +728,7 @@ mod tests {
             Path::new("out.mp4"),
             &params("libx264", 23.5, "slow"),
             Some(&f),
+            None,
             None,
             None,
             None,
@@ -477,6 +746,7 @@ mod tests {
             &params("libx264", 23.5, "slow"),
             None,
             Some(3000),
+            None,
             None,
             None,
         );
@@ -498,6 +768,7 @@ mod tests {
             Path::new("in.mp4"),
             Path::new("out.mp4"),
             &params("libx264", 23.5, "slow"),
+            None,
             None,
             None,
             Some(&e),
@@ -538,6 +809,7 @@ mod tests {
             &params("libx264", 23.5, "slow"),
             None,
             None,
+            None,
             Some(&e),
             Some(&spec),
         );
@@ -551,6 +823,7 @@ mod tests {
             Path::new("in.mp4"),
             Path::new("out.mp4"),
             &params("libx264", 23.5, "slow"),
+            None,
             None,
             None,
             None,

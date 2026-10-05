@@ -38,7 +38,7 @@ export interface Preset {
   note?: string;
 }
 
-export type JobStatus = "queued" | "running" | "done" | "error";
+export type JobStatus = "queued" | "running" | "done" | "error" | "cancelled";
 
 export interface QueueItem {
   id: string;
@@ -51,8 +51,16 @@ export interface QueueItem {
   outputSize?: number;
   outputPath?: string;
   error?: string;
+  /** 非致命提示（如「输出比源大」），黄色展示 */
+  warning?: string;
   /** 任务级编辑选项（截取/旋转/去黑边/裁剪） */
   edit?: EditOptions;
+  /** 重跑参数（持久化恢复用；前端「开始压缩」时回填） */
+  params?: {
+    outputDir?: string;
+    rename?: string;
+    edit?: EditOptions;
+  };
 }
 
 export interface ProgressEvent {

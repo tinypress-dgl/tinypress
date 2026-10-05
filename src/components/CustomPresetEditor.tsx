@@ -313,6 +313,9 @@ export default function CustomPresetEditor({ presets, onChanged }: Props) {
                         <option value="h264_nvenc">h264_nvenc（N卡硬编）</option>
                         <option value="hevc_nvenc">hevc_nvenc（N卡硬编 HEVC）</option>
                         <option value="h264_qsv">h264_qsv（Intel 核显）</option>
+                        <option value="hevc_qsv">hevc_qsv（Intel 核显 HEVC）</option>
+                        <option value="h264_videotoolbox">h264_videotoolbox（macOS 硬编）</option>
+                        <option value="hevc_videotoolbox">hevc_videotoolbox（macOS 硬编 HEVC）</option>
                       </select>
                     </label>
                     <label className="block">

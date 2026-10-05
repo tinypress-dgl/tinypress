@@ -7,15 +7,18 @@ import PresetSelector from "./components/PresetSelector";
 import QueueList from "./components/QueueList";
 import SettingsPanel from "./components/SettingsPanel";
 import {
+  cancelJob,
   checkUpdate,
   compressFiles,
   getAppVersion,
   getEngineInfo,
+  getQueue,
   getSettings,
   getWatchStatus,
   listPresets,
   onJobDone,
   onProgress,
+  retryJob,
   saveSettings,
   startWatch,
   stopWatch,
@@ -80,6 +83,17 @@ export default function App() {
       .then((s) => setWatchRunning(s.running))
       .catch(() => setWatchRunning(false));
     getAppVersion().then(setAppVersion).catch(() => setAppVersion(""));
+    // 恢复上次会话的任务队列（未完成任务为 queued，可重新开始）
+    getQueue()
+      .then((items) =>
+        setQueue(
+          items.map((it) => ({
+            ...it,
+            name: it.inputPath.split(/[\\/]/).pop() ?? it.inputPath,
+          }))
+        )
+      )
+      .catch(() => {});
   }, []);
 
   const handleCheckUpdate = async () => {
@@ -165,30 +179,47 @@ export default function App() {
     setQueue((q) => [...items, ...q]);
   };
 
-  /** 提交前把编辑选项合并进 compress 请求 */
+  /** 提交前把编辑选项合并进 compress 请求；
+   *  恢复的任务（params）沿用持久化参数，提交成功后移除旧 queued 记录 */
   const handleCompressClick = async () => {
     const pending = queue.filter((x) => x.status === "queued");
     if (pending.length === 0) return;
+    const pendingIds = new Set(pending.map((x) => x.id));
     try {
       const snapshot = await compressFiles({
         items: pending.map((it) => ({
           inputPath: it.inputPath,
           presetId: it.presetId,
-          outputDir: outputDir.trim() || undefined,
-          rename: renameTemplate.trim() || undefined,
-          edit: it.edit,
+          outputDir: it.params?.outputDir ?? (outputDir.trim() || undefined),
+          rename: it.params?.rename ?? (renameTemplate.trim() || undefined),
+          edit: it.edit ?? it.params?.edit,
         })),
       });
-      setQueue((q) =>
-        q.map((it) => {
-          const s = snapshot.find((x) => x.id === it.id);
-          return s
-            ? { ...it, status: "running" as const, inputSize: s.inputSize }
-            : it;
-        })
-      );
+      setQueue((q) => [
+        ...snapshot.map((s) => ({
+          ...s,
+          name: s.inputPath.split(/[\\/]/).pop() ?? s.inputPath,
+        })),
+        ...q.filter((it) => !pendingIds.has(it.id)),
+      ]);
     } catch (e) {
       console.error("compress_files failed", e);
+    }
+  };
+
+  const handleCancel = async (id: string) => {
+    try {
+      await cancelJob(id);
+    } catch (e) {
+      console.error("cancel_job failed", e);
+    }
+  };
+
+  const handleRetry = async (id: string) => {
+    try {
+      await retryJob(id);
+    } catch (e) {
+      console.error("retry_job failed", e);
     }
   };
 
@@ -325,6 +356,8 @@ export default function App() {
               selectedId={selectedItem?.id}
               onSelect={(it) => setSelectedItem(it)}
               onEditChange={handleEditChange}
+              onCancel={handleCancel}
+              onRetry={handleRetry}
             />
           </div>
           <CompareView item={selectedItem} />

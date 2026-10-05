@@ -13,7 +13,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::sync::Mutex as AsyncMutex;
 use tokio::time::sleep;
 
-use crate::engine::queue::{JobState, JobStore};
+use crate::engine::queue::{JobParams, JobState, JobStore};
 use crate::engine::run_compression;
 use crate::presets::Preset;
 
@@ -120,11 +120,18 @@ async fn scan_once(
 
         let id = watch_job_id(&path);
         let input_size = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+        let params = JobParams {
+            preset_id: preset.id.clone(),
+            output_dir: opts.output_dir.clone(),
+            rename: opts.rename.clone(),
+            edit: None,
+        };
         let job = JobState::new(
             id.clone(),
             path.to_string_lossy().into_owned(),
             preset.id.clone(),
             input_size,
+            params,
         );
         store.0.lock().unwrap().push(job.clone());
 
@@ -141,12 +148,15 @@ async fn scan_once(
         };
 
         let out_dir = opts.output_dir.as_deref().map(PathBuf::from);
+        // 监控压缩不支持单任务取消：使用本地永不置位的取消标志
+        let cancel = std::sync::atomic::AtomicBool::new(false);
         let job = run_compression(
             job,
             preset,
             out_dir.as_deref(),
             opts.rename.as_deref(),
             None,
+            &cancel,
             on_progress,
         )
         .await;

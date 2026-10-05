@@ -65,7 +65,7 @@ async fn run_once(
     let locator = BinaryLocator;
     match img.engine.as_str() {
         "mozjpeg" => mozjpeg(input, output, &locator, quality).await,
-        "pngquant" => pngquant_run(input, output, &locator).await,
+        "pngquant" => pngquant_run(input, output, &locator, quality).await,
         "libwebp" => webp(input, output, &locator, quality).await,
         "libavif" => avif(input, output, &locator, quality).await,
         other => Err(format!("未知图片引擎: {other}")),
@@ -137,11 +137,14 @@ async fn mozjpeg(
     finish(output).await
 }
 
-/// pngquant：输入需为 PNG，非 PNG 先用 ffmpeg 转换；按质量区间量化
+/// pngquant：输入需为 PNG，非 PNG 先用 ffmpeg 转换。
+/// 质量区间由用户设置的 quality 决定（上限=quality，下限=quality-25，最低 10），
+/// 修复旧版 `--quality=60-85` 硬编码导致用户质量档对 PNG 不生效的问题。
 async fn pngquant_run(
     input: &Path,
     output: &Path,
     locator: &BinaryLocator,
+    quality: u8,
 ) -> Result<Output, String> {
     let pngquant = locator
         .find("pngquant")
@@ -165,13 +168,16 @@ async fn pngquant_run(
         tmp.clone()
     };
 
+    // pngquant 质量区间：min-max，落在区间内输出；上限跟随用户质量档
+    let hi = quality.clamp(10, 100);
+    let lo = (quality.saturating_sub(25)).clamp(10, hi);
     let st = Command::new(&pngquant)
         .args([
-            "--quality=60-85",
-            "--strip",
-            "--output",
-            output.to_str().ok_or("路径非法")?,
-            png_in.to_str().ok_or("路径非法")?,
+            format!("--quality={lo}-{hi}"),
+            "--strip".into(),
+            "--output".into(),
+            output.to_str().ok_or("路径非法")?.into(),
+            png_in.to_str().ok_or("路径非法")?.into(),
         ])
         .stderr(Stdio::null())
         .status()
@@ -214,7 +220,9 @@ async fn webp(
     finish(output).await
 }
 
-/// libavif：avifenc 支持 png/jpeg 输入
+/// libavif：avifenc 支持 png/jpeg 输入。
+/// 质量映射：avifenc --qscale 接受 0-63（0=最好），把用户 0-100 质量档线性映射到 0-63，
+/// 修复旧版直接把 quality=80 传给 --qscale 越界的问题。
 async fn avif(
     input: &Path,
     output: &Path,
@@ -224,6 +232,8 @@ async fn avif(
     let avifenc = locator
         .find("avifenc")
         .ok_or_else(|| "未找到 avifenc（libavif）二进制".to_string())?;
+    let q = quality.clamp(0, 100) as u64;
+    let qscale = (63u64.saturating_mul(100 - q) / 100).clamp(0, 63);
     let st = Command::new(&avifenc)
         .args([
             "--min",
@@ -231,7 +241,7 @@ async fn avif(
             "--max",
             "63",
             "--qscale",
-            &quality.to_string(),
+            &qscale.to_string(),
             "--speed",
             "6",
             input.to_str().ok_or("路径非法")?,

@@ -7,6 +7,10 @@ interface Props {
   selectedId?: string;
   /** 更新某个待处理任务的编辑选项（压缩开始后无效） */
   onEditChange?: (id: string, edit: EditOptions | undefined) => void;
+  /** 取消 running/queued 任务 */
+  onCancel?: (id: string) => void;
+  /** 重试 error/cancelled 任务 */
+  onRetry?: (id: string) => void;
 }
 
 function formatSize(bytes?: number): string {
@@ -21,6 +25,7 @@ const STATUS_META: Record<QueueItem["status"], { text: string; cls: string }> = 
   running: { text: "压缩中", cls: "bg-blue-100 text-blue-600" },
   done: { text: "完成", cls: "bg-green-100 text-green-600" },
   error: { text: "失败", cls: "bg-red-100 text-red-600" },
+  cancelled: { text: "已取消", cls: "bg-slate-200 text-slate-500" },
 };
 
 function editSummary(e?: EditOptions): string {
@@ -134,7 +139,14 @@ function EditForm({
   );
 }
 
-export default function QueueList({ items, onSelect, selectedId, onEditChange }: Props) {
+export default function QueueList({
+  items,
+  onSelect,
+  selectedId,
+  onEditChange,
+  onCancel,
+  onRetry,
+}: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   if (items.length === 0) {
@@ -196,6 +208,31 @@ export default function QueueList({ items, onSelect, selectedId, onEditChange }:
                 {it.error && (
                   <span className="truncate text-red-400">{it.error}</span>
                 )}
+                {it.status === "running" && onCancel && (
+                  <button
+                    type="button"
+                    onClick={(ev) => {
+                      ev.stopPropagation();
+                      onCancel(it.id);
+                    }}
+                    className="rounded border border-slate-300 px-2 py-0.5 text-[11px] text-slate-600 hover:bg-white"
+                  >
+                    取消
+                  </button>
+                )}
+                {(it.status === "error" || it.status === "cancelled") &&
+                  onRetry && (
+                    <button
+                      type="button"
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        onRetry(it.id);
+                      }}
+                      className="rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] text-amber-700 hover:bg-amber-100"
+                    >
+                      重试
+                    </button>
+                  )}
                 {editable && (
                   <button
                     type="button"
@@ -210,9 +247,14 @@ export default function QueueList({ items, onSelect, selectedId, onEditChange }:
                 )}
               </span>
             </div>
+            {it.warning && (
+              <div className="mt-1 truncate text-[11px] text-amber-600">
+                ⚠ {it.warning}
+              </div>
+            )}
             {editing && editable && (
               <EditForm
-                edit={it.edit ?? {}}
+                edit={it.edit ?? it.params?.edit ?? {}}
                 onChange={(e) => onEditChange?.(it.id, e)}
                 onClose={() => setEditingId(null)}
               />
