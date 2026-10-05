@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { onFilesDropped, onNativeFilesDropped } from "../api";
+import { t } from "../i18n";
 
 interface Props {
   onFiles: (paths: string[]) => void;
@@ -58,10 +59,10 @@ export default function DropZone({ onFiles, disabled }: Props) {
     >
       <div className="text-4xl">📦</div>
       <p className="mt-1 text-sm font-medium text-slate-700">
-        拖入图片或视频文件（支持批量）
+        {t("drop.hint")}
       </p>
       <p className="mt-0.5 text-xs text-slate-400">
-        或拖入文件夹 · 也可用下方「添加文件」按钮或粘贴路径
+        {t("drop.hint2")}
       </p>
     </div>
   );

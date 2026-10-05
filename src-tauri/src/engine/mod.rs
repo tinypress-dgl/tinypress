@@ -1,3 +1,4 @@
+pub mod audio;
 pub mod edit;
 pub mod image;
 pub mod ocr;
@@ -194,6 +195,22 @@ pub async fn run_compression(
             // v0.5.0：PDF 瘦身（输入 PDF，重建为压缩后的 PDF）
             ("pdf", "pdf".to_string())
         }
+        "audio" => {
+            // 音频转码/压缩（能力保留，当前无独立 UI 入口）
+            let codec = preset
+                .audio
+                .as_ref()
+                .map(|a| a.codec.as_str())
+                .unwrap_or("mp3");
+            let ext = match codec {
+                "mp3" | "libmp3lame" => "mp3",
+                "aac" | "m4a" => "m4a",
+                "flac" => "flac",
+                "opus" | "ogg" => "ogg",
+                _ => "mp3",
+            };
+            ("audio", ext.to_string())
+        }
         other => {
             job.status = "error".into();
             job.error = Some(format!("未知预设类型: {other}"));
@@ -303,6 +320,21 @@ pub async fn run_compression(
             // v0.5.0：PDF 瘦身（解码逐页重压后重建，仅图片型 PDF 适用）
             let q = pdf_slim.unwrap_or(5).clamp(1, 31);
             pdf::slim_pdf(&input, &output, q, &mut on_progress).await
+        }
+        "audio" => {
+            // 音频转码/压缩（能力保留）
+            let codec = preset
+                .audio
+                .as_ref()
+                .map(|a| a.codec.clone())
+                .unwrap_or_else(|| "mp3".to_string());
+            let bitrate = preset
+                .audio
+                .as_ref()
+                .map(|a| a.bitrate_kbps)
+                .unwrap_or(128);
+            audio::transcode_audio(&input, &output, &codec, bitrate, cancel, &mut on_progress)
+                .await
         }
         _ => unreachable!(),
     };
@@ -563,6 +595,7 @@ mod tests {
                 audio: None,
             }),
             image: None,
+            audio: None,
             filters: None,
             note: None,
         };
@@ -613,6 +646,7 @@ mod tests {
             tags: vec![],
             constraints: None,
             video: None,
+            audio: None,
             image: Some(ImageParams {
                 format: "jpeg".into(),
                 engine: "mozjpeg".into(),
@@ -673,6 +707,7 @@ mod tests {
             tags: vec![],
             constraints: None,
             video: None,
+            audio: None,
             image: Some(ImageParams {
                 format: "jpeg".into(),
                 engine: "mozjpeg".into(),

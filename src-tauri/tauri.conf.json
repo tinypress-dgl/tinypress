@@ -37,6 +37,10 @@
         "type": "downloadBootstrapper",
         "silent": true
       }
+    },
+    "macOS": {
+      "infoPlist": "Info.plist",
+      "minimumSystemVersion": "10.13"
     }
   }
 }

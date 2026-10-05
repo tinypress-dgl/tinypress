@@ -1,23 +1,17 @@
 import { useState } from "react";
 import type { Preset } from "../types";
+import { platformLabel, t } from "../i18n";
+
+export type MediaType = "image" | "video";
 
 interface Props {
   presets: Preset[];
   selected: string;
   onSelect: (id: string) => void;
+  /** v0.6.0 当前媒体类型（左侧类型导航选中项） */
+  type: MediaType;
+  onTypeChange: (v: MediaType) => void;
 }
-
-const PLATFORM_LABEL: Record<string, string> = {
-  bilibili: "B站",
-  douyin: "抖音",
-  shipinhao: "视频号",
-  pinduoduo: "拼多多",
-  taobao: "淘宝",
-  xiaohongshu: "小红书",
-  wechat: "微信",
-  youtube: "YouTube",
-  generic: "通用",
-};
 
 /** 分组头：可点击折叠/展开该分组下的预设列表 */
 function GroupHeader({
@@ -40,13 +34,13 @@ function GroupHeader({
       <span>
         {label}（{count}）
       </span>
-      <span className="text-[10px]">{open ? "收起 ▲" : "展开 ▼"}</span>
+      <span className="text-[10px]">{open ? t("ps.groupCollapse") : t("ps.groupExpand")}</span>
     </button>
   );
 }
 
-export default function PresetSelector({ presets, selected, onSelect }: Props) {
-  const videos = presets.filter((p) => p.kind === "video");
+export default function PresetSelector({ presets, selected, onSelect, type, onTypeChange }: Props) {
+  const videos = presets.filter((p) => p.kind === "video" || p.kind === "pdf");
   const images = presets.filter((p) => p.kind === "image");
   const [videoOpen, setVideoOpen] = useState(true);
   const [imageOpen, setImageOpen] = useState(true);
@@ -70,7 +64,7 @@ export default function PresetSelector({ presets, selected, onSelect }: Props) {
               : "bg-slate-100 text-slate-500"
           }`}
         >
-          {PLATFORM_LABEL[p.platform] ?? p.platform}
+          {platformLabel(p.platform)}
         </span>
       </div>
       {p.constraints && (
@@ -91,30 +85,56 @@ export default function PresetSelector({ presets, selected, onSelect }: Props) {
     </button>
   );
 
+  const typeBtn = (id: MediaType, label: string) => (
+    <button
+      type="button"
+      onClick={() => onTypeChange(id)}
+      className={`flex-1 rounded-lg px-2 py-1.5 text-sm font-medium transition-colors ${
+        type === id ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-100"
+      }`}
+    >
+      {label}
+    </button>
+  );
+
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-slate-200 bg-white">
-      <div className="border-b border-slate-100 px-4 py-3">
-        <h2 className="text-sm font-semibold text-slate-800">场景预设</h2>
-        <p className="text-[11px] text-slate-400">平台硬约束，非瞎填参数</p>
+      {/* v0.6.0 左侧媒体类型导航 */}
+      <div className="border-b border-slate-100 p-3">
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-slate-800">{t("ps.title")}</h2>
+        </div>
+        <nav className="flex gap-1 rounded-lg bg-slate-100 p-1">
+          {typeBtn("image", t("app.tabImages"))}
+          {typeBtn("video", t("app.tabVideos"))}
+        </nav>
       </div>
       <div className="flex-1 overflow-y-auto px-2 py-2">
-        <GroupHeader
-          label="视频"
-          count={videos.length}
-          open={videoOpen}
-          onToggle={() => setVideoOpen((v) => !v)}
-        />
-        {videoOpen && videos.map(renderItem)}
-        <GroupHeader
-          label="图片"
-          count={images.length}
-          open={imageOpen}
-          onToggle={() => setImageOpen((v) => !v)}
-        />
-        {imageOpen && images.map(renderItem)}
+        {type === "image" && (
+          <>
+            <GroupHeader
+              label={t("ps.image")}
+              count={images.length}
+              open={imageOpen}
+              onToggle={() => setImageOpen((v) => !v)}
+            />
+            {imageOpen && images.map(renderItem)}
+          </>
+        )}
+        {type === "video" && (
+          <>
+            <GroupHeader
+              label={t("ps.video")}
+              count={videos.length}
+              open={videoOpen}
+              onToggle={() => setVideoOpen((v) => !v)}
+            />
+            {videoOpen && videos.map(renderItem)}
+          </>
+        )}
       </div>
       <div className="border-t border-slate-100 px-4 py-2 text-[11px] text-slate-400">
-        预设库 JSON 热更新 · v1
+        {t("ps.footer")}
       </div>
     </aside>
   );

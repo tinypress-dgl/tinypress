@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { ImageEditOptions } from "../types";
 import { pickSubtitleFile, pickWatermarkImage } from "../api";
+import { t } from "../i18n";
 
 const inputCls =
   "w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100 disabled:text-slate-400";
@@ -40,6 +41,7 @@ export default function BatchEditPanel({
   onOcrMode,
   batchRename,
   onBatchRename,
+  kind = "all",
 }: {
   imageEdit: ImageEditOptions | null;
   onImageEdit: (v: ImageEditOptions | null) => void;
@@ -63,6 +65,8 @@ export default function BatchEditPanel({
   onOcrMode: (v: boolean) => void;
   batchRename: string;
   onBatchRename: (v: string) => void;
+  /** v0.6.0 分页：image 只显示图片块 / video 只显示视频块+PDF瘦身 / all 全显示 */
+  kind?: "image" | "video" | "all";
 }) {
   const [ie, setIe] = useState<ImageEditOptions>(
     imageEdit ?? {
@@ -120,10 +124,10 @@ export default function BatchEditPanel({
       <header className="flex items-center justify-between border-b border-slate-200 px-4 py-2.5">
         <div>
           <h3 className="text-sm font-semibold text-slate-800">
-            批量处理工具箱
+            {t("batch.title")}
           </h3>
           <p className="text-xs text-slate-500">
-            对队列中的全部任务统一生效 · 本地处理不上传
+            {t("batch.subtitle")}
           </p>
         </div>
         <button
@@ -142,16 +146,17 @@ export default function BatchEditPanel({
               : "rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
           }
         >
-          {enabled ? "关闭批处理" : "启用批处理"}
+          {enabled ? t("batch.disable") : t("batch.enable")}
         </button>
       </header>
 
       <div className="grid grid-cols-1 gap-3 p-3 md:grid-cols-2">
-        {/* ===== 图片批量编辑 ===== */}
+        {/* ===== 图片批量编辑（图片页显示） ===== */}
+        {kind !== "video" && (
         <div className={secCls}>
           <div className="mb-2 flex items-center justify-between">
             <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-600">
-              图片批量编辑
+              {t("batch.imageTitle")}
             </h4>
             <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
               <input
@@ -164,7 +169,7 @@ export default function BatchEditPanel({
                 }}
                 className="h-3.5 w-3.5 accent-blue-600"
               />
-              转 PDF
+              {t("batch.toPdf")}
             </label>
             <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
               <input
@@ -177,26 +182,26 @@ export default function BatchEditPanel({
                 }}
                 className="h-3.5 w-3.5 accent-blue-600"
               />
-              OCR 识别文字
+              {t("batch.ocr")}
             </label>
           </div>
           <p className={pdfMode ? "mb-2 text-xs text-amber-600" : "hidden"}>
-            转 PDF 开启：全部图片任务输出单页 PDF（JPEG 直嵌，A4 适配），编辑参数不生效
+            {t("batch.pdfHint")}
           </p>
           <p className={ocrMode ? "mb-2 text-xs text-amber-600" : "hidden"}>
-            OCR 开启：全部图片任务识别文字并输出 .txt（本地 Tesseract，中文+英文）
+            {t("batch.ocrHint")}
           </p>
           <div className="mb-3 grid grid-cols-2 gap-2">
-            {num("缩放 %", "scalePercent", "如 50=缩半", 1, 1, 1000)}
-            {num("宽度 px", "width", "如 1920", 1, 1)}
-            {num("高度 px", "height", "如 1080", 1, 1)}
-            {num("旋转 °", "rotate", "0/90/180…", 90)}
-            {num("裁剪 %", "cropPercent", "居中裁剪", 1, 1, 100)}
+            {num(t("batch.scalePercent"), "scalePercent", "如 50=缩半", 1, 1, 1000)}
+            {num(t("batch.width"), "width", "如 1920", 1, 1)}
+            {num(t("batch.height"), "height", "如 1080", 1, 1)}
+            {num(t("batch.rotate"), "rotate", "0/90/180…", 90)}
+            {num(t("batch.cropPercent"), "cropPercent", "居中裁剪", 1, 1, 100)}
           </div>
 
-          <h5 className="mb-1.5 text-xs font-medium text-slate-500">水印</h5>
+          <h5 className="mb-1.5 text-xs font-medium text-slate-500">{t("batch.watermark")}</h5>
           <label className="mb-2 block">
-            <span className={labelCls}>文字水印</span>
+            <span className={labelCls}>{t("batch.wmText")}</span>
             <input
               placeholder="如 TinyPress / 公司名"
               value={ie.watermarkText ?? ""}
@@ -206,10 +211,10 @@ export default function BatchEditPanel({
             />
           </label>
           <label className="mb-2 block">
-            <span className={labelCls}>水印图片</span>
+            <span className={labelCls}>{t("batch.wmImage")}</span>
             <div className="flex gap-2">
               <input
-                placeholder="选择 PNG/水印图"
+                placeholder={t("batch.wmPick")}
                 value={ie.watermarkImage ?? ""}
                 disabled={!enabled}
                 className={inputCls}
@@ -223,18 +228,14 @@ export default function BatchEditPanel({
                 onClick={pickWm}
                 className="shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 disabled:bg-slate-100 disabled:text-slate-400"
               >
-                选择
+                {t("common.choose")}
               </button>
             </div>
           </label>
           <div className="grid grid-cols-3 gap-2">
             {num("字号/宽", "watermarkSize", "32", 1, 1)}
             <label className="block">
-              <span className={labelCls}>透明度 {(
-                (ie.watermarkOpacity ?? 0.6) * 100
-              ).toFixed(0)}
-                %
-              </span>
+              <span className={labelCls}>{t("batch.opacity", { p: Math.round((ie.watermarkOpacity ?? 0.6) * 100) })}</span>
               <input
                 type="range"
                 min={0.1}
@@ -247,34 +248,34 @@ export default function BatchEditPanel({
               />
             </label>
             <label className="block">
-              <span className={labelCls}>位置</span>
+              <span className={labelCls}>{t("batch.position")}</span>
               <select
                 value={ie.watermarkPosition ?? "br"}
                 disabled={!enabled}
                 className={inputCls}
                 onChange={(e) => set("watermarkPosition", e.target.value)}
               >
-                <option value="tl">左上</option>
-                <option value="tc">顶部居中</option>
-                <option value="tr">右上</option>
-                <option value="ml">左中</option>
-                <option value="mc">正中</option>
-                <option value="mr">右中</option>
-                <option value="bl">左下</option>
-                <option value="bc">底部居中</option>
-                <option value="br">右下</option>
+                <option value="tl">{t("batch.posTl")}</option>
+                <option value="tc">{t("batch.posTc")}</option>
+                <option value="tr">{t("batch.posTr")}</option>
+                <option value="ml">{t("batch.posMl")}</option>
+                <option value="mc">{t("batch.posMc")}</option>
+                <option value="mr">{t("batch.posMr")}</option>
+                <option value="bl">{t("batch.posBl")}</option>
+                <option value="bc">{t("batch.posBc")}</option>
+                <option value="br">{t("batch.posBr")}</option>
               </select>
             </label>
           </div>
           <label className="mt-2 block">
-            <span className={labelCls}>输出格式</span>
+            <span className={labelCls}>{t("batch.outFormat")}</span>
             <select
               value={ie.format ?? ""}
               disabled={!enabled}
               className={inputCls}
               onChange={(e) => set("format", e.target.value || undefined)}
             >
-              <option value="">保持源格式</option>
+              <option value="">{t("batch.keepFormat")}</option>
               <option value="jpg">JPG</option>
               <option value="png">PNG</option>
               <option value="webp">WebP</option>
@@ -283,12 +284,14 @@ export default function BatchEditPanel({
             </select>
           </label>
         </div>
+        )}
 
-        {/* ===== 视频批量处理 ===== */}
+        {/* ===== 视频批量处理（视频页显示） ===== */}
+        {kind !== "image" && (
         <div className={secCls}>
           <div className="mb-2 flex items-center justify-between">
             <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-600">
-              视频批量处理
+              {t("batch.videoTitle")}
             </h4>
             <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
               <input
@@ -307,18 +310,18 @@ export default function BatchEditPanel({
                 }}
                 className="h-3.5 w-3.5 accent-blue-600"
               />
-              封面抽帧
+              {t("batch.coverFrame")}
             </label>
           </div>
           <label className="mb-2 block">
-            <span className={labelCls}>容器转换</span>
+            <span className={labelCls}>{t("batch.container")}</span>
             <select
               value={container}
               disabled={audioOnly !== "" || coverAt !== "" || subtitlePath !== ""}
               className={inputCls}
               onChange={(e) => onContainer(e.target.value)}
             >
-              <option value="">不转换容器</option>
+              <option value="">{t("batch.noContainer")}</option>
               <option value="mp4">MP4</option>
               <option value="mkv">MKV</option>
               <option value="avi">AVI</option>
@@ -332,26 +335,26 @@ export default function BatchEditPanel({
             </select>
           </label>
           <label className="mb-2 block">
-            <span className={labelCls}>音轨提取</span>
+            <span className={labelCls}>{t("batch.audioExtract")}</span>
             <select
               value={audioOnly}
               disabled={container !== "" || coverAt !== "" || subtitlePath !== ""}
               className={inputCls}
               onChange={(e) => onAudioOnly(e.target.value)}
             >
-              <option value="">不提取音轨</option>
-              <option value="mp3">提取为 MP3</option>
-              <option value="wav">提取为 WAV</option>
-              <option value="m4a">提取为 M4A</option>
-              <option value="flac">提取为 FLAC</option>
-              <option value="ogg">提取为 OGG</option>
+              <option value="">{t("batch.noAudio")}</option>
+              <option value="mp3">{t("batch.audioMp3")}</option>
+              <option value="wav">{t("batch.audioWav")}</option>
+              <option value="m4a">{t("batch.audioM4a")}</option>
+              <option value="flac">{t("batch.audioFlac")}</option>
+              <option value="ogg">{t("batch.audioOgg")}</option>
             </select>
           </label>
           <label className="mb-2 block">
-            <span className={labelCls}>烧录字幕（硬字幕）</span>
+            <span className={labelCls}>{t("batch.burnSubtitle")}</span>
             <div className="flex gap-2">
               <input
-                placeholder="选择 .srt 字幕文件"
+                placeholder={t("batch.subtitlePick")}
                 value={subtitlePath}
                 disabled={container !== "" || audioOnly !== "" || coverAt !== ""}
                 className={inputCls}
@@ -371,7 +374,7 @@ export default function BatchEditPanel({
                 }}
                 className="shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 disabled:bg-slate-100 disabled:text-slate-400"
               >
-                选择
+                {t("common.choose")}
               </button>
             </div>
           </label>
@@ -380,7 +383,7 @@ export default function BatchEditPanel({
               coverAt !== "" ? "mb-2 block" : "pointer-events-none mb-2 block opacity-40"
             }
           >
-            <span className={labelCls}>封面时间点（秒）</span>
+            <span className={labelCls}>{t("batch.coverAt")}</span>
             <input
               type="number"
               min={0}
@@ -392,9 +395,10 @@ export default function BatchEditPanel({
             />
           </label>
           <p className="text-xs leading-5 text-slate-500">
-            容器转换优先不重编码（秒完成、零画质损失），不兼容时自动回退转码；音轨提取只保留声音；封面抽帧从指定时间点取一帧输出 JPG。
+            {t("batch.videoHint")}
           </p>
         </div>
+        )}
       </div>
 
       {/* ===== v0.5.0 PDF 瘦身（PDF 任务） ===== */}
@@ -406,10 +410,7 @@ export default function BatchEditPanel({
             onChange={(e) => onPdfSlimMode(e.target.checked)}
             className="h-3.5 w-3.5 accent-blue-600"
           />
-          PDF 瘦身
-          <span className="text-xs font-normal text-slate-500">
-            （选择「PDF 瘦身」预设时生效：解码逐页重压后重建，适合扫描/图片型 PDF）
-          </span>
+          {t("batch.pdfSlim")}
         </label>
         <div
           className={
@@ -418,7 +419,7 @@ export default function BatchEditPanel({
               : "pointer-events-none mt-2 flex items-center gap-3 opacity-40"
           }
         >
-          <span className="text-xs font-medium text-slate-500">质量</span>
+          <span className="text-xs font-medium text-slate-500">{t("batch.pdfSlimQuality")}</span>
           <input
             type="range"
             min={1}
@@ -429,7 +430,10 @@ export default function BatchEditPanel({
             onChange={(e) => onPdfSlimQuality(Number(e.target.value))}
           />
           <span className="text-xs text-slate-600">
-            清晰度 {11 - pdfSlimQuality} / 压缩度 {pdfSlimQuality}
+            {t("batch.pdfSlimLabel", {
+              c: 11 - pdfSlimQuality,
+              s: pdfSlimQuality,
+            })}
           </span>
         </div>
       </div>
@@ -437,9 +441,9 @@ export default function BatchEditPanel({
       {/* ===== 全局 ===== */}
       <div className="border-t border-slate-200 px-4 py-2.5">
         <label className="mb-2 block">
-          <span className={labelCls}>统一重命名模板（覆盖队列全部任务）</span>
+          <span className={labelCls}>{t("batch.renameTemplate")}</span>
           <input
-            placeholder='如 照片_{seq}_{name}，支持 {seq} 序号 / {date} 日期 / {time} 时间'
+            placeholder={t("batch.renamePlaceholder")}
             value={batchRename}
             className={inputCls}
             onChange={(e) => onBatchRename(e.target.value)}
@@ -453,9 +457,9 @@ export default function BatchEditPanel({
               onChange={(e) => onReplaceSource(e.target.checked)}
               className="h-3.5 w-3.5 accent-blue-600"
             />
-            输出后替换源文件
+            {t("batch.replaceSource")}
             <span className="text-xs font-normal text-slate-500">
-              （原文件将被输出覆盖，操作不可撤销）
+              {t("batch.replaceHint")}
             </span>
           </label>
         </div>

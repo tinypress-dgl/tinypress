@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { pickInputFiles, pickOutputDir, resolveInputPaths } from "../api";
+import { t } from "../i18n";
 
 interface Props {
   onFiles: (paths: string[]) => void;
@@ -18,10 +19,10 @@ export default function AddFilesPanel({ onFiles }: Props) {
       if (resolved.length > 0) {
         onFiles(resolved);
       } else {
-        alert("未识别到可压缩的图片/视频文件");
+        alert(t("add.noMedia"));
       }
     } catch (e) {
-      alert(`解析路径失败：${String(e)}`);
+      alert(t("add.pathFailed", { e: String(e) }));
     } finally {
       setBusy(false);
     }
@@ -33,7 +34,7 @@ export default function AddFilesPanel({ onFiles }: Props) {
       .map((s) => s.trim())
       .filter(Boolean);
     if (raw.length === 0) {
-      alert("请先粘贴文件或文件夹路径");
+      alert(t("add.pasteFirst"));
       return;
     }
     await applyPaths(raw);
@@ -56,14 +57,14 @@ export default function AddFilesPanel({ onFiles }: Props) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-3">
       <div className="mb-2 flex items-center gap-2">
-        <span className="text-xs font-semibold text-slate-700">添加文件</span>
+        <span className="text-xs font-semibold text-slate-700">{t("add.title")}</span>
         <button
           type="button"
           onClick={handlePickFiles}
           disabled={busy}
           className={btnCls}
         >
-          选择文件…
+          {t("add.pickFiles")}
         </button>
         <button
           type="button"
@@ -71,13 +72,13 @@ export default function AddFilesPanel({ onFiles }: Props) {
           disabled={busy}
           className={btnCls}
         >
-          选择文件夹…
+          {t("add.pickFolder")}
         </button>
       </div>
       <div className="flex gap-2">
         <input
           className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-          placeholder="粘贴文件/文件夹路径，多个用换行、逗号或分号分隔"
+          placeholder={t("add.placeholder")}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
@@ -90,11 +91,11 @@ export default function AddFilesPanel({ onFiles }: Props) {
           disabled={busy || !text.trim()}
           className="shrink-0 rounded-lg bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {busy ? "解析中…" : "添加"}
+          {busy ? t("add.busy") : t("add.add")}
         </button>
       </div>
       <p className="mt-1.5 text-[11px] text-slate-400">
-        文件夹会自动递归收集其中的图片/视频；粘贴多路径时建议直接拖入文件夹更快捷。
+        {t("add.hint")}
       </p>
     </div>
   );

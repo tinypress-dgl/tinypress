@@ -99,6 +99,8 @@ export interface AppSettings {
   renameTemplate?: string;
   watchDir?: string;
   watchPreset?: string;
+  /** v0.6.0 界面语言（system 跟随系统 / zh / en） */
+  language?: string;
 }
 
 /** 基础视频编辑选项（任务级，全部可选） */

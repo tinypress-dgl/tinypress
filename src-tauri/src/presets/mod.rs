@@ -38,13 +38,15 @@ pub struct Preset {
     pub id: String,
     pub name: String,
     pub platform: String,
-    /// "video" | "image"
+    /// "video" | "image" | "pdf" | "audio"
     pub kind: String,
     #[serde(default)]
     pub tags: Vec<String>,
     pub constraints: Option<Value>,
     pub video: Option<VideoParams>,
     pub image: Option<ImageParams>,
+    /// 音频预设参数（kind=audio 时生效；当前 UI 无独立音频入口，能力保留给未来/视频音轨提取复用）
+    pub audio: Option<AudioParams>,
     pub filters: Option<Value>,
     pub note: Option<String>,
 }
@@ -129,6 +131,7 @@ mod tests {
                 audio: None,
             }),
             image: None,
+            audio: None,
             filters: None,
             note: None,
         }

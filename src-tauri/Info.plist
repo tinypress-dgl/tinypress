@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>TinyPress 需要访问「桌面」中的文件，以便您选择要压缩的图片和视频，并将处理结果保存到您指定的位置。</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>TinyPress 需要访问「文稿」中的文件，以便您选择要压缩的图片和视频，并将处理结果保存到您指定的位置。</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>TinyPress 需要访问「下载」中的文件，以便您选择要压缩的图片和视频，并将处理结果保存到您指定的位置。</string>
+	<key>NSRemovableVolumesUsageDescription</key>
+	<string>TinyPress 需要访问外接磁盘中的文件，以便您选择要压缩的图片和视频，并将处理结果保存到您指定的位置。</string>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
+</dict>
+</plist>

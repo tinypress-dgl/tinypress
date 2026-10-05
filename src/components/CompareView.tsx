@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { QueueItem } from "../types";
+import { t } from "../i18n";
 
 interface Props {
   item: QueueItem | null;
@@ -55,7 +56,7 @@ export default function CompareView({ item }: Props) {
     return (
       <aside className="flex w-96 shrink-0 flex-col border-l border-slate-200 bg-white">
         <div className="flex flex-1 items-center justify-center px-6 text-center text-sm text-slate-400">
-          点击队列中的任务，查看压缩前后对比与预览
+          {t("c.empty")}
         </div>
       </aside>
     );
@@ -79,19 +80,19 @@ export default function CompareView({ item }: Props) {
       {/* 大小对比 */}
       <div className="grid grid-cols-3 gap-2 border-b border-slate-100 p-4 text-center">
         <div>
-          <p className="text-[11px] text-slate-400">压缩前</p>
+          <p className="text-[11px] text-slate-400">{t("c.before")}</p>
           <p className="mt-1 text-sm font-semibold text-slate-700">
             {formatSize(inputSize)}
           </p>
         </div>
         <div>
-          <p className="text-[11px] text-slate-400">压缩后</p>
+          <p className="text-[11px] text-slate-400">{t("c.after")}</p>
           <p className="mt-1 text-sm font-semibold text-blue-600">
             {formatSize(outputSize)}
           </p>
         </div>
         <div>
-          <p className="text-[11px] text-slate-400">节省</p>
+          <p className="text-[11px] text-slate-400">{t("c.saved")}</p>
           <p className="mt-1 text-sm font-bold text-green-600">
             {ratio !== null ? `-${ratio}%` : "—"}
           </p>
@@ -102,14 +103,14 @@ export default function CompareView({ item }: Props) {
       <div className="flex flex-1 flex-col gap-3 p-4">
         {item.status === "error" && (
           <div className="rounded-lg bg-red-50 p-3 text-xs text-red-600">
-            {item.error ?? "压缩失败"}
+            {item.error ?? t("c.failed")}
           </div>
         )}
 
         {outUrl && isVideo(item.outputPath!) && (
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
             <video src={outUrl} controls className="max-h-64 w-full" />
-            <p className="px-3 py-2 text-[11px] text-slate-400">压缩后 · 视频预览</p>
+            <p className="px-3 py-2 text-[11px] text-slate-400">{t("c.videoPreview")}</p>
           </div>
         )}
 
@@ -117,10 +118,10 @@ export default function CompareView({ item }: Props) {
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
             <img
               src={outUrl}
-              alt="压缩后预览"
+              alt={t("c.imagePreview")}
               className="mx-auto max-h-64 w-auto object-contain"
             />
-            <p className="px-3 py-2 text-[11px] text-slate-400">压缩后 · 可放大对比画质</p>
+            <p className="px-3 py-2 text-[11px] text-slate-400">{t("c.imagePreview")}</p>
           </div>
         )}
 
@@ -131,19 +132,19 @@ export default function CompareView({ item }: Props) {
             ) : (
               <img
                 src={inUrl}
-                alt="原始预览"
+                alt={t("c.original")}
                 className="mx-auto max-h-48 w-auto object-contain"
               />
             )}
-            <p className="px-3 py-2 text-[11px] text-slate-400">原始文件 · 对比参考</p>
+            <p className="px-3 py-2 text-[11px] text-slate-400">{t("c.original")}</p>
           </div>
         )}
 
         {!outUrl && item.status !== "error" && (
           <div className="flex flex-1 items-center justify-center text-xs text-slate-400">
             {item.status === "running"
-              ? `压缩中… ${item.progress}%`
-              : "等待任务完成"}
+              ? t("c.running", { p: item.progress })
+              : t("c.waiting")}
           </div>
         )}
       </div>

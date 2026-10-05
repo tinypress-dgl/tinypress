@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { pickOutputDir } from "../api";
 import type { Preset } from "../types";
+import { t, useLang, type LangPref } from "../i18n";
 
 interface Props {
   outputDir: string;
@@ -15,9 +16,11 @@ interface Props {
   onStartWatch: () => void;
   onStopWatch: () => void;
   presets: Preset[];
+  language: LangPref;
+  onLanguageChange: (v: LangPref) => void;
 }
 
-/** 折叠式设置面板：输出目录 / 命名模板 / 文件夹监控 */
+/** 折叠式设置面板：界面语言 / 输出目录 / 命名模板 / 文件夹监控 */
 export default function SettingsPanel({
   outputDir,
   renameTemplate,
@@ -31,8 +34,11 @@ export default function SettingsPanel({
   onStartWatch,
   onStopWatch,
   presets,
+  language,
+  onLanguageChange,
 }: Props) {
   const [open, setOpen] = useState(true);
+  useLang();
 
   const inputCls =
     "w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
@@ -44,17 +50,35 @@ export default function SettingsPanel({
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center justify-between px-4 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
       >
-        <span>⚙ 输出与自动压缩设置</span>
-        <span className="text-xs text-slate-400">{open ? "收起 ▲" : "展开 ▼"}</span>
+        <span>{t("settings.title")}</span>
+        <span className="text-xs text-slate-400">
+          {open ? t("common.collapse") : t("common.expand")}
+        </span>
       </button>
 
       {open && (
         <div className="space-y-4 px-4 pb-4">
+          {/* 界面语言 */}
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-medium text-slate-500">
+              {t("settings.language")}
+            </span>
+            <select
+              value={language}
+              onChange={(e) => onLanguageChange(e.target.value as LangPref)}
+              className="w-48 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 outline-none focus:border-blue-500"
+            >
+              <option value="system">{t("settings.langSystem")}</option>
+              <option value="zh">{t("settings.langZh")}</option>
+              <option value="en">{t("settings.langEn")}</option>
+            </select>
+          </div>
+
           {/* 输出目录 + 命名模板 */}
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="block">
               <span className="mb-1 block text-xs font-medium text-slate-500">
-                输出目录（留空 = 与源文件同目录）
+                {t("settings.outputDir")}
               </span>
               <div className="flex gap-2">
                 <input
@@ -70,15 +94,15 @@ export default function SettingsPanel({
                     if (dir) onOutputDirChange(dir);
                   }}
                   className="shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
-                  title="打开文件夹选择器"
+                  title={t("settings.folderPicker")}
                 >
-                  选择…
+                  {t("common.choose")}
                 </button>
               </div>
             </label>
             <label className="block">
               <span className="mb-1 block text-xs font-medium text-slate-500">
-                命名模板（支持 {"{name}"} {"{kind}"} {"{ext}"}，缺省 {"{name}.{kind}"}）
+                {t("settings.renameTemplate")}
               </span>
               <input
                 className={inputCls}
@@ -93,7 +117,7 @@ export default function SettingsPanel({
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-700">
-                文件夹监控：新文件自动压缩
+                {t("settings.watchTitle")}
               </span>
               <span
                 className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
@@ -102,13 +126,13 @@ export default function SettingsPanel({
                     : "bg-slate-200 text-slate-500"
                 }`}
               >
-                {watchRunning ? "监控中" : "未运行"}
+                {watchRunning ? t("settings.watchRunning") : t("settings.watchStopped")}
               </span>
             </div>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
               <label className="block">
                 <span className="mb-1 block text-xs font-medium text-slate-500">
-                  监控目录
+                  {t("settings.watchDir")}
                 </span>
                 <div className="flex gap-2">
                   <input
@@ -124,15 +148,15 @@ export default function SettingsPanel({
                       if (dir) onWatchDirChange(dir);
                     }}
                     className="shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
-                    title="打开文件夹选择器"
+                    title={t("settings.folderPicker")}
                   >
-                    选择…
+                    {t("common.choose")}
                   </button>
                 </div>
               </label>
               <label className="block">
                 <span className="mb-1 block text-xs font-medium text-slate-500">
-                  使用的预设
+                  {t("settings.watchPreset")}
                 </span>
                 <select
                   className={inputCls}
@@ -153,7 +177,7 @@ export default function SettingsPanel({
                     onClick={onStopWatch}
                     className="w-full rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-100"
                   >
-                    停止监控
+                    {t("settings.stopWatch")}
                   </button>
                 ) : (
                   <button
@@ -162,13 +186,13 @@ export default function SettingsPanel({
                     disabled={!watchDir.trim()}
                     className="w-full rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    启动监控
+                    {t("settings.startWatch")}
                   </button>
                 )}
               </div>
             </div>
             <p className="mt-2 text-[11px] text-slate-400">
-              监控目录内新增的图片/视频将自动按所选预设压缩；启动前已存在的文件不会重复处理。
+              {t("settings.watchHint")}
             </p>
           </div>
         </div>

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { deleteCustomPreset, saveCustomPreset } from "../api";
 import type { Preset, PresetKind } from "../types";
+import { t } from "../i18n";
 
 interface Props {
   presets: Preset[];
@@ -98,13 +99,44 @@ export default function CustomPresetEditor({ presets, onChanged }: Props) {
     setMsg("");
   };
 
+  /** v0.6.0：从内置平台预设快速填充（保留可编辑，保存为新自定义预设） */
+  const startFromPreset = (p: Preset) => {
+    if (!p) return;
+    setDraft({
+      id: "",
+      name: p.name + "（自定）",
+      platform: p.platform,
+      kind: p.kind,
+      note: p.note ?? "",
+      codec: p.video?.codec ?? "libx264",
+      crf: p.video ? String(p.video.crf) : "23.5",
+      preset: p.video?.preset ?? "medium",
+      level: p.video?.level ?? "",
+      keyint: p.video?.keyint != null ? String(p.video.keyint) : "250",
+      audioBitrate: p.video?.audio ? String(p.video.audio.bitrate_kbps) : "128",
+      scale:
+        typeof p.filters?.scale === "string" ? String(p.filters.scale) : "",
+      maxBitrate:
+        p.constraints?.max_bitrate_kbps != null
+          ? String(p.constraints.max_bitrate_kbps)
+          : "",
+      format: p.image?.format ?? "jpeg",
+      engine: p.image?.engine ?? "mozjpeg",
+      quality: p.image?.quality != null ? String(p.image.quality) : "80",
+      maxSizeKb:
+        p.image?.max_size_kb != null ? String(p.image.max_size_kb) : "",
+      stripMetadata: p.image?.strip_metadata ?? true,
+    });
+    setMsg("");
+  };
+
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) =>
     setDraft((d) => (d ? { ...d, [k]: v } : d));
 
   const save = async () => {
     if (!draft) return;
     if (!draft.name.trim()) {
-      setMsg("请填写预设名称");
+      setMsg(t("pe.nameRequired"));
       return;
     }
     setSaving(true);
@@ -165,21 +197,21 @@ export default function CustomPresetEditor({ presets, onChanged }: Props) {
       await saveCustomPreset(preset);
       setDraft(null);
       onChanged();
-      setMsg("已保存");
+      setMsg(t("common.saved"));
     } catch (e) {
-      setMsg(`保存失败：${String(e)}`);
+      setMsg(t("pe.saveFailed", { e: String(e) }));
     } finally {
       setSaving(false);
     }
   };
 
   const remove = async (p: Preset) => {
-    if (!window.confirm(`删除自定义预设「${p.name}」？`)) return;
+    if (!window.confirm(t("pe.confirmDelete", { n: p.name }))) return;
     try {
       await deleteCustomPreset(p.id);
       onChanged();
     } catch (e) {
-      setMsg(`删除失败：${String(e)}`);
+      setMsg(t("pe.deleteFailed", { e: String(e) }));
     }
   };
 
@@ -190,8 +222,8 @@ export default function CustomPresetEditor({ presets, onChanged }: Props) {
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center justify-between px-4 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
       >
-        <span>✎ 预设管理器（{customs.length} 个自定义）</span>
-        <span className="text-xs text-slate-400">{open ? "收起 ▲" : "展开 ▼"}</span>
+        <span>✎ {t("pe.title", { n: customs.length })}</span>
+        <span className="text-xs text-slate-400">{open ? t("common.collapse") : t("common.expand")}</span>
       </button>
 
       {open && (
@@ -202,16 +234,46 @@ export default function CustomPresetEditor({ presets, onChanged }: Props) {
               onClick={() => startNew("video")}
               className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
             >
-              + 新建视频预设
+              + {t("pe.newVideo")}
             </button>
             <button
               type="button"
               onClick={() => startNew("image")}
               className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
             >
-              + 新建图片预设
+              + {t("pe.newImage")}
             </button>
             {msg && <span className="self-center text-xs text-slate-500">{msg}</span>}
+          </div>
+
+          {/* v0.6.0 从内置平台预设快速填充 */}
+          <div className="rounded-xl border border-slate-200 bg-white p-3">
+            <p className="mb-2 text-xs font-medium text-slate-500">{t("pe.fillFromPreset")}</p>
+            <select
+              value=""
+              onChange={(e) => {
+                const p = presets.find((x) => x.id === e.target.value);
+                if (p) startFromPreset(p);
+              }}
+              className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-slate-700 focus:border-blue-500 focus:outline-none"
+            >
+              <option value="">{t("pe.fillPlaceholder")}</option>
+              {presets
+                .filter((p) => p.kind === "video" || p.kind === "pdf")
+                .map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {t("ps.video")} · {p.name}
+                  </option>
+                ))}
+              {presets
+                .filter((p) => p.kind === "image")
+                .map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {t("ps.image")} · {p.name}
+                  </option>
+                ))}
+            </select>
+            <p className="mt-1.5 text-[11px] text-slate-400">{t("pe.customHint")}</p>
           </div>
 
           {customs.length > 0 && (
@@ -239,14 +301,14 @@ export default function CustomPresetEditor({ presets, onChanged }: Props) {
                       onClick={() => startEdit(p)}
                       className="rounded-md border border-slate-300 px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-50"
                     >
-                      编辑
+                      {t("common.edit")}
                     </button>
                     <button
                       type="button"
                       onClick={() => remove(p)}
                       className="rounded-md border border-red-200 px-2.5 py-1 text-xs text-red-500 hover:bg-red-50"
                     >
-                      删除
+                      {t("common.delete")}
                     </button>
                   </div>
                 </li>
@@ -258,20 +320,20 @@ export default function CustomPresetEditor({ presets, onChanged }: Props) {
             <div className="rounded-xl border border-blue-200 bg-blue-50/40 p-4">
               <div className="mb-3 flex items-center justify-between">
                 <span className="text-sm font-semibold text-slate-800">
-                  {draft.id ? "编辑预设" : "新建预设"}（{draft.kind === "video" ? "视频" : "图片"}）
+                  {draft.id ? t("pe.editPreset") : t("pe.newPreset")}（{draft.kind === "video" ? t("pe.kindVideo") : t("pe.kindImage")}）
                 </span>
                 <button
                   type="button"
                   onClick={() => setDraft(null)}
                   className="text-xs text-slate-400 hover:text-slate-600"
                 >
-                  取消
+                  {t("common.cancel")}
                 </button>
               </div>
 
               <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                 <label className="block">
-                  <span className={labelCls}>预设名称 *</span>
+                  <span className={labelCls}>{t("pe.nameLabel")}</span>
                   <input
                     className={inputCls}
                     value={draft.name}
@@ -280,7 +342,7 @@ export default function CustomPresetEditor({ presets, onChanged }: Props) {
                   />
                 </label>
                 <label className="block">
-                  <span className={labelCls}>平台标签</span>
+                  <span className={labelCls}>{t("pe.platformLabel")}</span>
                   <input
                     className={inputCls}
                     value={draft.platform}
@@ -289,7 +351,7 @@ export default function CustomPresetEditor({ presets, onChanged }: Props) {
                   />
                 </label>
                 <label className="block">
-                  <span className={labelCls}>备注（可选）</span>
+                  <span className={labelCls}>{t("pe.noteLabel")}</span>
                   <input
                     className={inputCls}
                     value={draft.note}
@@ -301,26 +363,26 @@ export default function CustomPresetEditor({ presets, onChanged }: Props) {
                 {draft.kind === "video" ? (
                   <>
                     <label className="block">
-                      <span className={labelCls}>编码器</span>
+                      <span className={labelCls}>{t("pe.codecLabel")}</span>
                       <select
                         className={inputCls}
                         value={draft.codec}
                         onChange={(e) => set("codec", e.target.value)}
                       >
-                        <option value="libx264">libx264（软件·兼容最好）</option>
-                        <option value="libx265">libx265（软件·HEVC）</option>
-                        <option value="libsvtav1">libsvtav1（软件·AV1）</option>
-                        <option value="h264_nvenc">h264_nvenc（N卡硬编）</option>
-                        <option value="hevc_nvenc">hevc_nvenc（N卡硬编 HEVC）</option>
-                        <option value="h264_qsv">h264_qsv（Intel 核显）</option>
-                        <option value="hevc_qsv">hevc_qsv（Intel 核显 HEVC）</option>
-                        <option value="h264_videotoolbox">h264_videotoolbox（macOS 硬编）</option>
-                        <option value="hevc_videotoolbox">hevc_videotoolbox（macOS 硬编 HEVC）</option>
+                        <option value="libx264">{t("pe.codecX264")}</option>
+                        <option value="libx265">{t("pe.codecX265")}</option>
+                        <option value="libsvtav1">{t("pe.codecAv1")}</option>
+                        <option value="h264_nvenc">{t("pe.codecNvencH264")}</option>
+                        <option value="hevc_nvenc">{t("pe.codecNvencHevc")}</option>
+                        <option value="h264_qsv">{t("pe.codecQsvH264")}</option>
+                        <option value="hevc_qsv">{t("pe.codecQsvHevc")}</option>
+                        <option value="h264_videotoolbox">{t("pe.codecVtbH264")}</option>
+                        <option value="hevc_videotoolbox">{t("pe.codecVtbHevc")}</option>
                       </select>
                     </label>
                     <label className="block">
                       <span className={labelCls}>
-                        CRF / CQ（NVENC 用 -cq，QSV 用 -global_quality）
+                        {t("pe.crfLabel")}
                       </span>
                       <input
                         className={inputCls}
@@ -333,7 +395,7 @@ export default function CustomPresetEditor({ presets, onChanged }: Props) {
                       />
                     </label>
                     <label className="block">
-                      <span className={labelCls}>编码速度 preset</span>
+                      <span className={labelCls}>{t("pe.presetLabel")}</span>
                       <input
                         className={inputCls}
                         value={draft.preset}
@@ -342,7 +404,7 @@ export default function CustomPresetEditor({ presets, onChanged }: Props) {
                       />
                     </label>
                     <label className="block">
-                      <span className={labelCls}>分辨率上限（如 1920:-2）</span>
+                      <span className={labelCls}>{t("pe.scaleLabel")}</span>
                       <input
                         className={inputCls}
                         value={draft.scale}
@@ -351,7 +413,7 @@ export default function CustomPresetEditor({ presets, onChanged }: Props) {
                       />
                     </label>
                     <label className="block">
-                      <span className={labelCls}>GOP 关键帧间隔（可选）</span>
+                      <span className={labelCls}>{t("pe.keyintLabel")}</span>
                       <input
                         className={inputCls}
                         type="number"
@@ -360,7 +422,7 @@ export default function CustomPresetEditor({ presets, onChanged }: Props) {
                       />
                     </label>
                     <label className="block">
-                      <span className={labelCls}>音频码率 kbps（留空 = 去音频）</span>
+                      <span className={labelCls}>{t("pe.audioLabel")}</span>
                       <input
                         className={inputCls}
                         type="number"
@@ -369,7 +431,7 @@ export default function CustomPresetEditor({ presets, onChanged }: Props) {
                       />
                     </label>
                     <label className="block">
-                      <span className={labelCls}>最大码率 kbps（可选）</span>
+                      <span className={labelCls}>{t("pe.maxBitrateLabel")}</span>
                       <input
                         className={inputCls}
                         type="number"
@@ -379,7 +441,7 @@ export default function CustomPresetEditor({ presets, onChanged }: Props) {
                       />
                     </label>
                     <label className="block">
-                      <span className={labelCls}>H.264 level（可选）</span>
+                      <span className={labelCls}>{t("pe.levelLabel")}</span>
                       <input
                         className={inputCls}
                         value={draft.level}
@@ -391,7 +453,7 @@ export default function CustomPresetEditor({ presets, onChanged }: Props) {
                 ) : (
                   <>
                     <label className="block">
-                      <span className={labelCls}>输出格式</span>
+                      <span className={labelCls}>{t("pe.formatLabel")}</span>
                       <select
                         className={inputCls}
                         value={draft.format}
@@ -404,20 +466,20 @@ export default function CustomPresetEditor({ presets, onChanged }: Props) {
                       </select>
                     </label>
                     <label className="block">
-                      <span className={labelCls}>压缩引擎</span>
+                      <span className={labelCls}>{t("pe.engineLabel")}</span>
                       <select
                         className={inputCls}
                         value={draft.engine}
                         onChange={(e) => set("engine", e.target.value)}
                       >
-                        <option value="mozjpeg">mozjpeg（JPEG）</option>
-                        <option value="pngquant">pngquant（PNG）</option>
-                        <option value="libwebp">libwebp（WebP）</option>
-                        <option value="libavif">libavif（AVIF）</option>
+                        <option value="mozjpeg">{t("pe.engineMozjpeg")}</option>
+                        <option value="pngquant">{t("pe.enginePngquant")}</option>
+                        <option value="libwebp">{t("pe.engineWebp")}</option>
+                        <option value="libavif">{t("pe.engineAvif")}</option>
                       </select>
                     </label>
                     <label className="block">
-                      <span className={labelCls}>质量（可选，0-100）</span>
+                      <span className={labelCls}>{t("pe.qualityLabel")}</span>
                       <input
                         className={inputCls}
                         type="number"
@@ -428,7 +490,7 @@ export default function CustomPresetEditor({ presets, onChanged }: Props) {
                       />
                     </label>
                     <label className="block">
-                      <span className={labelCls}>体积上限 KB（可选）</span>
+                      <span className={labelCls}>{t("pe.maxSizeLabel")}</span>
                       <input
                         className={inputCls}
                         type="number"
@@ -438,14 +500,14 @@ export default function CustomPresetEditor({ presets, onChanged }: Props) {
                       />
                     </label>
                     <label className="block md:col-span-2">
-                      <span className={labelCls}>去除元数据</span>
+                      <span className={labelCls}>{t("pe.stripMetaLabel")}</span>
                       <label className="flex items-center gap-2 pt-1 text-sm text-slate-700">
                         <input
                           type="checkbox"
                           checked={draft.stripMetadata}
                           onChange={(e) => set("stripMetadata", e.target.checked)}
                         />
-                        压缩时剥离 EXIF 等元数据（更小体积）
+                        {t("pe.stripMetaHint")}
                       </label>
                     </label>
                   </>
@@ -459,10 +521,10 @@ export default function CustomPresetEditor({ presets, onChanged }: Props) {
                   disabled={saving}
                   className="rounded-lg bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40"
                 >
-                  {saving ? "保存中…" : "保存预设"}
+                  {saving ? t("pe.saving") : t("pe.savePreset")}
                 </button>
                 <span className="text-[11px] text-slate-400">
-                  自定义预设保存到本地配置目录，不随安装包分发
+                  {t("pe.customHint")}
                 </span>
               </div>
             </div>

@@ -29,6 +29,8 @@ pub struct AppSettings {
     pub rename_template: Option<String>,
     pub watch_dir: Option<String>,
     pub watch_preset: Option<String>,
+    /// v0.6.0：界面语言（"system" 跟随系统 / "zh" / "en"），缺省跟随系统
+    pub language: Option<String>,
 }
 
 fn settings_file(app: &AppHandle) -> Result<PathBuf, String> {

@@ -403,6 +403,42 @@
         }
       },
       "note": "v0.5.0：按源分辨率/码率/时长自动选择编码器（x265/x264）与质量，全开源参数。"
+    },
+    {
+      "id": "audio-mp3-128",
+      "name": "音频通用 MP3 128k",
+      "platform": "generic",
+      "kind": "audio",
+      "tags": [
+        "hot"
+      ],
+      "audio": {
+        "codec": "mp3",
+        "bitrate_kbps": 128
+      },
+      "note": "音频转码压缩：MP3 128kbps（能力保留，备用）"
+    },
+    {
+      "id": "audio-m4a-192",
+      "name": "音频高保真 M4A 192k",
+      "platform": "generic",
+      "kind": "audio",
+      "audio": {
+        "codec": "aac",
+        "bitrate_kbps": 192
+      },
+      "note": "音频转码：AAC 192kbps（能力保留，备用）"
+    },
+    {
+      "id": "audio-flac-lossless",
+      "name": "音频无损 FLAC",
+      "platform": "generic",
+      "kind": "audio",
+      "audio": {
+        "codec": "flac",
+        "bitrate_kbps": 0
+      },
+      "note": "音频格式转换：FLAC 无损（能力保留，备用）"
     }
   ]
 }

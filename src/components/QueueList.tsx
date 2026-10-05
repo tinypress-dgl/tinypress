@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { EditOptions, QueueItem } from "../types";
+import { t } from "../i18n";
 
 interface Props {
   items: QueueItem[];
@@ -20,21 +21,21 @@ function formatSize(bytes?: number): string {
   return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
 }
 
-const STATUS_META: Record<QueueItem["status"], { text: string; cls: string }> = {
-  queued: { text: "等待中", cls: "bg-slate-100 text-slate-500" },
-  running: { text: "压缩中", cls: "bg-blue-100 text-blue-600" },
-  done: { text: "完成", cls: "bg-green-100 text-green-600" },
-  error: { text: "失败", cls: "bg-red-100 text-red-600" },
-  cancelled: { text: "已取消", cls: "bg-slate-200 text-slate-500" },
+const STATUS_META: Record<QueueItem["status"], { key: string; cls: string }> = {
+  queued: { key: "q.statusQueued", cls: "bg-slate-100 text-slate-500" },
+  running: { key: "q.statusRunning", cls: "bg-blue-100 text-blue-600" },
+  done: { key: "q.statusDone", cls: "bg-green-100 text-green-600" },
+  error: { key: "q.statusError", cls: "bg-red-100 text-red-600" },
+  cancelled: { key: "q.statusCancelled", cls: "bg-slate-200 text-slate-500" },
 };
 
 function editSummary(e?: EditOptions): string {
   if (!e) return "";
   const parts: string[] = [];
-  if (e.trimDuration) parts.push(`截取 ${e.trimDuration}s`);
-  if (e.rotate) parts.push(`旋转${e.rotate}°`);
-  if (e.autocrop) parts.push("去黑边");
-  if (e.cropPercent && e.cropPercent < 100) parts.push(`裁切 ${e.cropPercent}%`);
+  if (e.trimDuration) parts.push(t("q.trim", { s: e.trimDuration }));
+  if (e.rotate) parts.push(t("q.rotate", { r: e.rotate }));
+  if (e.autocrop) parts.push(t("q.autocrop"));
+  if (e.cropPercent && e.cropPercent < 100) parts.push(t("q.crop", { p: e.cropPercent }));
   return parts.length ? parts.join(" · ") : "";
 }
 
@@ -58,7 +59,7 @@ function EditForm({
       onClick={(ev) => ev.stopPropagation()}
     >
       <label className="block">
-        <span className="mb-0.5 block text-[10px] text-slate-500">截取起点（秒）</span>
+        <span className="mb-0.5 block text-[10px] text-slate-500">{t("q.trimStart")}</span>
         <input
           className={inputCls}
           type="number"
@@ -74,14 +75,14 @@ function EditForm({
         />
       </label>
       <label className="block">
-        <span className="mb-0.5 block text-[10px] text-slate-500">截取时长（秒）</span>
+        <span className="mb-0.5 block text-[10px] text-slate-500">{t("q.trimDuration")}</span>
         <input
           className={inputCls}
           type="number"
           min={0}
           step={0.1}
           value={edit.trimDuration ?? ""}
-          placeholder="留空=不截取"
+          placeholder={t("q.noTrim")}
           onChange={(ev) =>
             set({
               trimDuration: ev.target.value === "" ? undefined : Number(ev.target.value),
@@ -90,20 +91,20 @@ function EditForm({
         />
       </label>
       <label className="block">
-        <span className="mb-0.5 block text-[10px] text-slate-500">旋转</span>
+        <span className="mb-0.5 block text-[10px] text-slate-500">{t("q.rotateLabel")}</span>
         <select
           className={inputCls}
           value={edit.rotate ?? 0}
           onChange={(ev) => set({ rotate: Number(ev.target.value) })}
         >
-          <option value={0}>不旋转</option>
-          <option value={90}>顺时针 90°</option>
-          <option value={180}>180°</option>
-          <option value={270}>顺时针 270°</option>
+          <option value={0}>{t("q.noRotate")}</option>
+          <option value={90}>{t("q.rotCw90")}</option>
+          <option value={180}>{t("q.rot180")}</option>
+          <option value={270}>{t("q.rotCw270")}</option>
         </select>
       </label>
       <label className="block">
-        <span className="mb-0.5 block text-[10px] text-slate-500">居中裁切（%）</span>
+        <span className="mb-0.5 block text-[10px] text-slate-500">{t("q.cropCenter")}</span>
         <input
           className={inputCls}
           type="number"
@@ -124,7 +125,7 @@ function EditForm({
           checked={edit.autocrop ?? false}
           onChange={(ev) => set({ autocrop: ev.target.checked })}
         />
-        自动去黑边（检测上下黑边后裁剪）
+        {t("q.autocropLabel")}
       </label>
       <div className="col-span-2 flex justify-end gap-2">
         <button
@@ -132,7 +133,7 @@ function EditForm({
           className="rounded border border-slate-300 px-2 py-0.5 text-[11px] text-slate-500 hover:bg-white"
           onClick={onClose}
         >
-          完成
+          {t("common.done")}
         </button>
       </div>
     </div>
@@ -152,13 +153,13 @@ export default function QueueList({
   if (items.length === 0) {
     return (
       <div className="flex flex-1 items-center justify-center text-sm text-slate-400">
-        队列为空 —— 拖入文件后选择预设开始压缩
+        {t("q.empty")}
       </div>
     );
   }
 
   return (
-    <div className="flex flex-1 flex-col overflow-y-auto">
+    <div className="flex flex-col">
       {items.map((it) => {
         const meta = STATUS_META[it.status];
         const ratio =
@@ -183,7 +184,7 @@ export default function QueueList({
               <span
                 className={`shrink-0 rounded px-2 py-0.5 text-[11px] ${meta.cls}`}
               >
-                {meta.text}
+                {t(meta.key)}
               </span>
             </div>
             <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-slate-400">
@@ -217,7 +218,7 @@ export default function QueueList({
                     }}
                     className="rounded border border-slate-300 px-2 py-0.5 text-[11px] text-slate-600 hover:bg-white"
                   >
-                    取消
+                    {t("q.cancel")}
                   </button>
                 )}
                 {(it.status === "error" || it.status === "cancelled") &&
@@ -230,7 +231,7 @@ export default function QueueList({
                       }}
                       className="rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] text-amber-700 hover:bg-amber-100"
                     >
-                      重试
+                      {t("q.retry")}
                     </button>
                   )}
                 {editable && (
@@ -242,7 +243,7 @@ export default function QueueList({
                     }}
                     className="rounded border border-slate-300 px-2 py-0.5 text-[11px] text-slate-600 hover:bg-white"
                   >
-                    {editing ? "收起" : "编辑"}
+                    {editing ? t("q.collapse") : t("common.edit")}
                   </button>
                 )}
               </span>
