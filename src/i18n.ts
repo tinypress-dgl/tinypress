@@ -56,6 +56,7 @@ const d: Dict = {
   // ===== 通用 =====
   "common.collapse": { zh: "收起 ▲", en: "Collapse ▲" },
   "common.expand": { zh: "展开 ▼", en: "Expand ▼" },
+  "common.close": { zh: "关闭", en: "Close" },
   "common.choose": { zh: "选择…", en: "Choose…" },
   "common.cancel": { zh: "取消", en: "Cancel" },
   "common.done": { zh: "完成", en: "Done" },

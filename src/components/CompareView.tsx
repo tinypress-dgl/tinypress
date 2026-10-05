@@ -5,6 +5,8 @@ import { t } from "../i18n";
 
 interface Props {
   item: QueueItem | null;
+  /** 关闭对比浮层 */
+  onClose: () => void;
 }
 
 function formatSize(bytes?: number): string {
@@ -45,21 +47,16 @@ function useDataUrl(path: string | null): string | null {
   return url;
 }
 
-/** 对比预览面板：压缩前后大小、压缩率、可播放/查看的预览 */
-export default function CompareView({ item }: Props) {
+/** 对比预览面板：点击队列任务时以浮层弹出（v0.6.2 不再占右侧固定栏位） */
+export default function CompareView({ item, onClose }: Props) {
   const outUrl = useDataUrl(item?.outputPath ?? null);
   const inUrl = useDataUrl(
     item?.status === "done" ? item.inputPath : null
   );
 
+  // 无选中任务：完全不占界面空间
   if (!item) {
-    return (
-      <aside className="flex w-96 shrink-0 flex-col border-l border-slate-200 bg-white">
-        <div className="flex flex-1 items-center justify-center px-6 text-center text-sm text-slate-400">
-          {t("c.empty")}
-        </div>
-      </aside>
-    );
+    return null;
   }
 
   const { inputSize, outputSize } = item;
@@ -69,13 +66,29 @@ export default function CompareView({ item }: Props) {
       : null;
 
   return (
-    <aside className="flex w-96 shrink-0 flex-col overflow-y-auto border-l border-slate-200 bg-white">
-      <div className="border-b border-slate-100 px-4 py-3">
-        <h2 className="truncate text-sm font-semibold text-slate-800">
-          {item.name}
-        </h2>
-        <p className="mt-0.5 text-[11px] text-slate-400">{item.presetId}</p>
-      </div>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="flex max-h-[85vh] w-full max-w-lg shrink-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+          <div className="min-w-0">
+            <h2 className="truncate text-sm font-semibold text-slate-800">
+              {item.name}
+            </h2>
+            <p className="mt-0.5 text-[11px] text-slate-400">{item.presetId}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="ml-3 shrink-0 rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-500 hover:bg-slate-50"
+          >
+            {t("common.close")}
+          </button>
+        </div>
 
       {/* 大小对比 */}
       <div className="grid grid-cols-3 gap-2 border-b border-slate-100 p-4 text-center">
@@ -147,7 +160,8 @@ export default function CompareView({ item }: Props) {
               : t("c.waiting")}
           </div>
         )}
+        </div>
       </div>
-    </aside>
+    </div>
   );
 }

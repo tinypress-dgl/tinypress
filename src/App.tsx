@@ -636,7 +636,7 @@ export default function App() {
         </div>
       </main>
 
-      <CompareView item={selectedItem} />
+      <CompareView item={selectedItem} onClose={() => setSelectedItem(null)} />
     </div>
   );
 }
