@@ -36,10 +36,9 @@ pub struct WatchOptions {
     pub rename: Option<String>,
 }
 
-/// 运行中的监控状态：停止标记 + 已处理文件集合（去重）
+/// 运行中的监控状态：停止标记（去重集合由监控循环内部持有）
 pub struct WatchHandle {
     pub stop: Arc<AtomicBool>,
-    pub seen: Arc<AsyncMutex<HashSet<PathBuf>>>,
 }
 
 impl WatchHandle {

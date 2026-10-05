@@ -661,10 +661,8 @@ pub fn start_watch(
         rename: request.rename,
     };
     let stop = Arc::new(AtomicBool::new(false));
-    let seen = Arc::new(tokio::sync::Mutex::new(HashSet::new()));
     watch_state.0.lock().unwrap().replace(WatchHandle {
         stop: stop.clone(),
-        seen: seen.clone(),
     });
 
     let store = state.inner().clone();
@@ -683,6 +681,7 @@ pub fn start_watch(
             let _ = app.emit("compress_done", job);
         }),
     };
+    let seen = Arc::new(tokio::sync::Mutex::new(HashSet::new()));
     tokio::spawn(async move {
         watch::start_watch_loop(dir, opts, presets, store, events, stop, seen).await;
     });
