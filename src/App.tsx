@@ -4,7 +4,6 @@ import CompareView from "./components/CompareView";
 import AddFilesPanel from "./components/AddFilesPanel";
 import CustomPresetEditor from "./components/CustomPresetEditor";
 import DropZone from "./components/DropZone";
-import PresetSelector from "./components/PresetSelector";
 import QueueList from "./components/QueueList";
 import SettingsPanel from "./components/SettingsPanel";
 import {
@@ -358,13 +357,6 @@ export default function App() {
 
   return (
     <div className="flex h-full bg-slate-50 text-slate-800">
-      <PresetSelector
-        presets={presets}
-        selected={selectedPreset}
-        onSelect={setSelectedPreset}
-        type={activeTab}
-      />
-
       <main className="flex min-w-0 flex-1 flex-col">
         <header className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-white px-4 py-3">
           <div className="min-w-0">
@@ -450,41 +442,78 @@ export default function App() {
           </div>
         </header>
 
-        {/* 工作区：上下/左右可滚动，任何屏幕尺寸都显示齐全 */}
+        {/* 预设选择（v0.6.1 移到中间栏顶部）+ 工作区滚动 */}
         <div className="min-h-0 flex-1 overflow-auto">
-          <SettingsPanel
-            outputDir={outputDir}
-            renameTemplate={renameTemplate}
-            onOutputDirChange={(v) => {
-              setOutputDir(v);
-              if (v) setOutputMode("custom");
-            }}
-            onRenameTemplateChange={setRenameTemplate}
-            watchDir={watchDir}
-            watchPreset={watchPreset}
-            watchRunning={watchRunning}
-            onWatchDirChange={setWatchDir}
-            onWatchPresetChange={setWatchPreset}
-            onStartWatch={handleStartWatch}
-            onStopWatch={handleStopWatch}
-            presets={presets}
-          />
-
-          <CustomPresetEditor
-            presets={presets}
-            onChanged={() =>
-              refreshPresets(
-                setPresets,
-                selectedPreset,
-                setSelectedPreset,
-                watchPreset,
-                setWatchPreset
-              )
-            }
-          />
+          {/* 预设选择行 */}
+          <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-4 py-2.5">
+            <span className="text-xs font-medium text-slate-500">{t("ps.title")}</span>
+            <select
+              value={selectedPreset}
+              onChange={(e) => setSelectedPreset(e.target.value)}
+              className="min-w-56 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-700 outline-none focus:border-blue-500"
+            >
+              <option value="">{t("ps.placeholder")}</option>
+              {presets
+                .filter((p) => (activeTab === "image" ? p.kind === "image" : p.kind === "video" || p.kind === "pdf"))
+                .map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+            </select>
+            {(() => {
+              const cur = presets.find((p) => p.id === selectedPreset);
+              if (!cur?.constraints) return null;
+              return (
+                <span className="rounded bg-amber-50 px-2 py-1 text-[11px] text-amber-700">
+                  {[
+                    cur.constraints.max_size_kb && `≤${cur.constraints.max_size_kb}KB`,
+                    cur.constraints.max_bitrate_kbps && `≤${cur.constraints.max_bitrate_kbps}kbps`,
+                    cur.constraints.max_resolution && cur.constraints.max_resolution,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+              );
+            })()}
+            {selectedPreset && (
+              <button
+                type="button"
+                onClick={() => setSelectedPreset("")}
+                className="rounded-md border border-slate-200 px-2 py-1 text-[11px] text-slate-400 hover:bg-slate-50"
+              >
+                {t("ps.clear")}
+              </button>
+            )}
+          </div>
 
           <div className="space-y-3 p-4">
-            {/* 批处理工具箱：图片页只显示图片块，视频页只显示视频块+PDF瘦身 */}
+            {/* ① 选择文件（上方）：自选文件 / 自选文件夹 / 粘贴路径 */}
+            <AddFilesPanel onFiles={handleFiles} />
+            {/* ② 拖入框（中间） */}
+            <DropZone onFiles={handleFiles} />
+
+            {pagePending.length > 0 && (
+              <button
+                type="button"
+                onClick={handleCompressClick}
+                className="w-full rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+              >
+                {t("app.startCompress", { n: pagePending.length })}
+              </button>
+            )}
+
+            {/* ③ 任务队列区（并入中间栏，无右侧独立任务区） */}
+            <QueueList
+              items={visibleQueue}
+              selectedId={selectedItem?.id}
+              onSelect={(it) => setSelectedItem(it)}
+              onEditChange={handleEditChange}
+              onCancel={handleCancel}
+              onRetry={handleRetry}
+            />
+
+            {/* ④ 批处理工具箱：图片页只显示图片块，视频页只显示视频块+PDF瘦身 */}
             <BatchEditPanel
               imageEdit={imageEdit}
               onImageEdit={setImageEdit}
@@ -511,7 +540,7 @@ export default function App() {
               kind={activeTab}
             />
 
-            {/* 输出路径：源文件目录 / 自定义目录 */}
+            {/* ⑤ 输出路径：源文件目录 / 自定义目录（保存设置放下面） */}
             <section className="rounded-xl border border-slate-200 bg-white p-3">
               <h3 className="mb-2 text-sm font-semibold text-slate-800">
                 {t("out.title")}
@@ -571,27 +600,37 @@ export default function App() {
               </div>
             </section>
 
-            {/* 文件入口：拖入框内 / 自选文件 / 自选文件夹 / 粘贴路径 */}
-            <DropZone onFiles={handleFiles} />
-            <AddFilesPanel onFiles={handleFiles} />
+            {/* ⑥ 输出与自动压缩设置（保存设置：目录/命名/监控） */}
+            <SettingsPanel
+              outputDir={outputDir}
+              renameTemplate={renameTemplate}
+              onOutputDirChange={(v) => {
+                setOutputDir(v);
+                if (v) setOutputMode("custom");
+              }}
+              onRenameTemplateChange={setRenameTemplate}
+              watchDir={watchDir}
+              watchPreset={watchPreset}
+              watchRunning={watchRunning}
+              onWatchDirChange={setWatchDir}
+              onWatchPresetChange={setWatchPreset}
+              onStartWatch={handleStartWatch}
+              onStopWatch={handleStopWatch}
+              presets={presets}
+            />
 
-            {pagePending.length > 0 && (
-              <button
-                type="button"
-                onClick={handleCompressClick}
-                className="w-full rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
-              >
-                {t("app.startCompress", { n: pagePending.length })}
-              </button>
-            )}
-
-            <QueueList
-              items={visibleQueue}
-              selectedId={selectedItem?.id}
-              onSelect={(it) => setSelectedItem(it)}
-              onEditChange={handleEditChange}
-              onCancel={handleCancel}
-              onRetry={handleRetry}
+            {/* ⑦ 预设管理器 */}
+            <CustomPresetEditor
+              presets={presets}
+              onChanged={() =>
+                refreshPresets(
+                  setPresets,
+                  selectedPreset,
+                  setSelectedPreset,
+                  watchPreset,
+                  setWatchPreset
+                )
+              }
             />
           </div>
         </div>
