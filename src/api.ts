@@ -70,6 +70,12 @@ export interface CompressItem {
   pdf?: boolean;
   /** v0.4.0 视频封面抽帧（时间点秒） */
   coverAt?: number;
+  /** v0.5.0 PDF 瘦身质量（1-31，越小越清晰） */
+  pdfSlim?: number;
+  /** v0.5.0 硬字幕烧录（.srt 路径） */
+  subtitle?: string;
+  /** v0.5.0 图片 OCR 识别文字（输出 .txt） */
+  ocr?: boolean;
   /** v0.4.0 输出替换源文件 */
   replaceSource?: boolean;
 }
@@ -173,6 +179,11 @@ export function pickInputFiles(): Promise<string[] | null> {
 /** 原生单选对话框（水印图片）；用户取消返回 null */
 export function pickWatermarkImage(): Promise<string | null> {
   return invoke<string | null>("pick_watermark_image");
+}
+
+/** v0.5.0 原生单选对话框（字幕 .srt）；用户取消返回 null */
+export function pickSubtitleFile(): Promise<string | null> {
+  return invoke<string | null>("pick_subtitle_file");
 }
 
 /** 把用户输入的路径（文件/文件夹，可混排）解析为真实文件列表（文件夹递归收集媒体文件） */

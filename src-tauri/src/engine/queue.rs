@@ -25,9 +25,18 @@ pub struct JobParams {
     /// v0.4.0：图片转 PDF
     #[serde(default)]
     pub pdf: bool,
+    /// v0.5.0：PDF 瘦身质量（q:v 1-31，越小越清晰）
+    #[serde(default)]
+    pub pdf_slim: Option<u32>,
     /// v0.4.0：视频封面抽帧（时间点秒）
     #[serde(default)]
     pub cover_at: Option<f64>,
+    /// v0.5.0：硬字幕烧录（.srt 路径），Some 时烧录进画面
+    #[serde(default)]
+    pub subtitle: Option<String>,
+    /// v0.5.0：图片 OCR 识别文字（输出 .txt）
+    #[serde(default)]
+    pub ocr: bool,
     /// v0.4.0：输出替换源文件
     #[serde(default)]
     pub replace_source: bool,

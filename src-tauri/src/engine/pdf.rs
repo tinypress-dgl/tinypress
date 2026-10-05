@@ -147,61 +147,207 @@ async fn probe_has_alpha(locator: &BinaryLocator, input: &Path) -> bool {
 
 /// 生成单页 PDF 字节（JPEG DCTDecode 直嵌，A4 等比缩放居中）
 fn build_pdf(jpeg: &[u8], w_px: u32, h_px: u32) -> Vec<u8> {
+    build_pdf_multi(&[(jpeg, w_px, h_px)])
+}
+
+/// 多页 PDF 生成器（v0.5.0：PDF 瘦身重建用）。每页一张 JPEG，A4 等比缩放居中。
+fn build_pdf_multi(pages: &[(&[u8], u32, u32)]) -> Vec<u8> {
     const A4_W: f64 = 595.0;
     const A4_H: f64 = 842.0;
-    // 96dpi 语义：1px = 1/96 inch = 0.75pt
-    let w_pt = w_px as f64 * 0.75;
-    let h_pt = h_px as f64 * 0.75;
-    let scale = (A4_W / w_pt).min(A4_H / h_pt);
-    let dw = (w_pt * scale).round();
-    let dh = (h_pt * scale).round();
-    let dx = ((A4_W - dw) / 2.0).round();
-    let dy = ((A4_H - dh) / 2.0).round();
-
-    let mut buf = Vec::with_capacity(jpeg.len() + 1024);
-    let mut offs = [0usize; 5];
+    let n = pages.len();
+    let mut buf = Vec::with_capacity(1024 + pages.iter().map(|p| p.0.len()).sum::<usize>());
+    let mut offs: Vec<usize> = Vec::with_capacity(2 + 3 * n);
     buf.extend_from_slice(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n");
+
     // 1: catalog
-    offs[0] = buf.len();
+    offs.push(buf.len());
     buf.extend_from_slice(b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
-    // 2: pages
-    offs[1] = buf.len();
-    buf.extend_from_slice(b"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n");
-    // 3: page
-    offs[2] = buf.len();
-    let page = format!(
-        "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {A4_W:.0} {A4_H:.0}] \
-/Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>\nendobj\n"
+    // 2: pages（Kids 编号：page 从 3 开始，每个 page 占 3 个对象）
+    offs.push(buf.len());
+    let kids: Vec<String> = (0..n).map(|i| format!("{} 0 R", 3 + i * 3)).collect();
+    let pages_obj = format!(
+        "2 0 obj\n<< /Type /Pages /Kids [{}] /Count {} >>\nendobj\n",
+        kids.join(" "),
+        n
     );
-    buf.extend_from_slice(page.as_bytes());
-    // 4: image xobject
-    offs[3] = buf.len();
-    let im = format!(
-        "4 0 obj\n<< /Type /XObject /Subtype /Image /Width {w_px} /Height {h_px} \
+    buf.extend_from_slice(pages_obj.as_bytes());
+
+    // 每页：page 对象、image xobject、content stream
+    for (i, (jpeg, w_px, h_px)) in pages.iter().enumerate() {
+        let base = 3 + i * 3; // 3: page, 4: image, 5: content
+        // page 对象
+        offs.push(buf.len());
+        let page = format!(
+            "{} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {A4_W:.0} {A4_H:.0}] \
+/Resources << /XObject << /Im{} {} 0 R >> >> /Contents {} 0 R >>\nendobj\n",
+            base,
+            i,
+            base + 1,
+            base + 2
+        );
+        buf.extend_from_slice(page.as_bytes());
+        // image xobject
+        offs.push(buf.len());
+        let im = format!(
+            "{} 0 obj\n<< /Type /XObject /Subtype /Image /Width {} /Height {} \
 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length {}\nstream\n",
-        jpeg.len()
-    );
-    buf.extend_from_slice(im.as_bytes());
-    buf.extend_from_slice(jpeg);
-    buf.extend_from_slice(b"\nendstream\nendobj\n");
-    // 5: content（绘制到页面）
-    offs[4] = buf.len();
-    let content = format!(
-        "5 0 obj\n<< /Length 54 >>\nstream\nq {dw:.2} 0 0 {dh:.2} {dx:.2} {dy:.2} cm /Im0 Do Q\nendstream\nendobj\n"
-    );
-    buf.extend_from_slice(content.as_bytes());
-    // xref
+            base + 1,
+            w_px,
+            h_px,
+            jpeg.len()
+        );
+        buf.extend_from_slice(im.as_bytes());
+        buf.extend_from_slice(jpeg);
+        buf.extend_from_slice(b"\nendstream\nendobj\n");
+        // content stream
+        offs.push(buf.len());
+        let w_pt = *w_px as f64 * 0.75;
+        let h_pt = *h_px as f64 * 0.75;
+        let scale = (A4_W / w_pt).min(A4_H / h_pt);
+        let dw = (w_pt * scale).round();
+        let dh = (h_pt * scale).round();
+        let dx = ((A4_W - dw) / 2.0).round();
+        let dy = ((A4_H - dh) / 2.0).round();
+        let content = format!(
+            "{} 0 obj\n<< /Length 54 >>\nstream\nq {dw:.2} 0 0 {dh:.2} {dx:.2} {dy:.2} cm /Im{} Do Q\nendstream\nendobj\n",
+            base + 2,
+            i
+        );
+        buf.extend_from_slice(content.as_bytes());
+    }
+
+    // xref（对象数 = 2 + 3n）
     let xref_off = buf.len();
-    let xref = format!(
-        "xref\n0 6\n0000000000 65535 f \n{off1:010} 00000 n \n{off2:010} 00000 n \n{off3:010} 00000 n \n{off4:010} 00000 n \n{off5:010} 00000 n \ntrailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n{xref_off}\n%%EOF\n",
-        off1 = offs[0],
-        off2 = offs[1],
-        off3 = offs[2],
-        off4 = offs[3],
-        off5 = offs[4],
-    );
+    let mut xref = format!("xref\n0 {}\n0000000000 65535 f \n", 2 + 3 * n);
+    for off in &offs {
+        xref.push_str(&format!("{off:010} 00000 n \n"));
+    }
+    xref.push_str(&format!(
+        "trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref_off}\n%%EOF\n",
+        2 + 3 * n
+    ));
     buf.extend_from_slice(xref.as_bytes());
     buf
+}
+
+/// v0.5.0：PDF 文档瘦身。管线（全开源、无专利依赖）：
+///  1. ffprobe 探测页数；
+///  2. ffmpeg 逐页解码为 JPEG（PDF demuxer 按页出帧）；
+///  3. 以较低质量重编码（-q:v），复用 build_pdf_multi 重建多页 PDF。
+pub async fn slim_pdf(
+    input: &Path,
+    output_pdf: &Path,
+    quality: u32,
+    mut on_progress: impl FnMut(u8),
+) -> Result<Output, String> {
+    on_progress(10);
+    let locator = BinaryLocator;
+    let ffmpeg = locator
+        .find("ffmpeg")
+        .ok_or_else(|| "未找到 ffmpeg 二进制".to_string())?;
+    let input_s = input.to_str().ok_or("路径非法")?;
+
+    // 1) 页数
+    let pages = probe_pdf_pages(&locator, input).await?;
+    if pages == 0 {
+        return Err("无法解析 PDF 页数".into());
+    }
+    on_progress(25);
+
+    // 2) 逐页解码
+    let tmp_dir = output_pdf
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .join(format!(
+            ".tinypress_slim_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis())
+                .unwrap_or(0)
+        ));
+    std::fs::create_dir_all(&tmp_dir).map_err(|e| format!("建临时目录失败: {e}"))?;
+    let pattern = tmp_dir.join("p%02d.jpg");
+    let st = Command::new(&ffmpeg)
+        .args([
+            "-y",
+            "-i",
+            input_s,
+            "-vf",
+            "format=yuvj420p",
+            "-q:v",
+            &quality.to_string(),
+            pattern.to_str().ok_or("路径非法")?,
+        ])
+        .stderr(Stdio::null())
+        .status()
+        .await
+        .map_err(|e| format!("启动 ffmpeg 失败: {e}"))?;
+    if !st.success() {
+        let _ = std::fs::remove_dir_all(&tmp_dir);
+        return Err(format!("PDF 解码退出码: {:?}", st.code()));
+    }
+    on_progress(60);
+
+    // 3) 收集页并重建
+    let mut collected: Vec<(Vec<u8>, u32, u32)> = Vec::with_capacity(pages);
+    for i in 1..=pages {
+        let jpg = tmp_dir.join(format!("p{i:02}.jpg"));
+        if !jpg.exists() {
+            continue;
+        }
+        let (w, h) = probe_dimensions(&locator, &jpg).await.unwrap_or((595, 842));
+        let bytes = std::fs::read(&jpg).map_err(|e| format!("读取页 {i} 失败: {e}"))?;
+        collected.push((bytes, w, h));
+    }
+    let _ = std::fs::remove_dir_all(&tmp_dir);
+    if collected.is_empty() {
+        return Err("PDF 解码无输出页".into());
+    }
+    let refs: Vec<(&[u8], u32, u32)> = collected
+        .iter()
+        .map(|(b, w, h)| (b.as_slice(), *w, *h))
+        .collect();
+    let pdf = build_pdf_multi(&refs);
+    on_progress(85);
+    std::fs::write(output_pdf, pdf).map_err(|e| format!("写 PDF 失败: {e}"))?;
+    on_progress(100);
+    let size = std::fs::metadata(output_pdf)
+        .map_err(|e| format!("读取 PDF 失败: {e}"))?
+        .len();
+    Ok(Output {
+        output_path: output_pdf.to_path_buf(),
+        output_size: size,
+        skipped: false,
+    })
+}
+
+/// ffprobe 统计 PDF 视频流总帧数（= 页数）
+async fn probe_pdf_pages(locator: &BinaryLocator, input: &Path) -> Result<usize, String> {
+    let ffprobe = locator
+        .find("ffprobe")
+        .ok_or_else(|| "未找到 ffprobe 二进制".to_string())?;
+    let out = Command::new(&ffprobe)
+        .args([
+            "-v",
+            "error",
+            "-select_streams",
+            "v:0",
+            "-count_frames",
+            "-show_entries",
+            "stream=nb_read_frames",
+            "-of",
+            "csv=p=0",
+            input.to_str().ok_or("路径非法")?,
+        ])
+        .output()
+        .await
+        .map_err(|e| format!("启动 ffprobe 失败: {e}"))?;
+    let s = String::from_utf8_lossy(&out.stdout);
+    let n: usize = s
+        .trim()
+        .parse()
+        .map_err(|_| format!("无法解析 PDF 页数: {s}"))?;
+    Ok(n)
 }
 
 // 保持 PathBuf 导入被使用（output_path 返回类型路径）
@@ -288,6 +434,42 @@ mod tests {
         println!(
             "[实测] 透明PNG转PDF(白底): {} ({}B)",
             r.output_path.display(),
+            r.output_size
+        );
+    }
+
+    /// 集成实测：PDF 瘦身——源 PDF 重压重建后体积应显著下降且可解析
+    #[tokio::test]
+    #[ignore = "集成实测：需要引擎二进制在 PATH"]
+    async fn slim_pdf_real() {
+        let src = verify_dir().join("out_pdf.pdf");
+        if !src.exists() {
+            let r = image_to_pdf(&corpus("photo_river.jpg"), &src, |_| {})
+                .await
+                .unwrap_or_else(|e| panic!("先转 PDF 失败: {e}"));
+            assert!(r.output_path.exists());
+        }
+        let src_size = std::fs::metadata(&src).unwrap().len();
+        let out = verify_dir().join("out_slim.pdf");
+        let _ = std::fs::remove_file(&out);
+        let r = slim_pdf(&src, &out, 10, |_| {})
+            .await
+            .unwrap_or_else(|e| panic!("PDF 瘦身失败: {e}"));
+        assert!(r.output_path.exists());
+        let bytes = std::fs::read(&out).unwrap();
+        let s = String::from_utf8_lossy(&bytes);
+        assert!(s.starts_with("%PDF-1.4"), "PDF 头");
+        assert!(s.contains("/Filter /DCTDecode"), "JPEG 直嵌");
+        println!(
+            "[实测] PDF瘦身: {}B -> {}B ({:.0}%)",
+            src_size,
+            r.output_size,
+            r.output_size as f64 / src_size as f64 * 100.0
+        );
+        // 瘦身不应变大（q=10 必然重压）
+        assert!(
+            r.output_size < src_size,
+            "瘦身后应小于源: 源 {src_size} 输出 {}",
             r.output_size
         );
     }

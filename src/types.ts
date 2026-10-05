@@ -1,6 +1,6 @@
 /** 与 src-tauri 侧 serde 结构一一对应（Rust 侧序列化为 camelCase，本文件使用 camelCase 字段） */
 
-export type PresetKind = "video" | "image";
+export type PresetKind = "video" | "image" | "pdf" | "audio";
 
 export interface VideoParams {
   codec: string; // libx264 | libx265 | libsvtav1 | h264_nvenc | hevc_nvenc | h264_qsv
@@ -67,6 +67,12 @@ export interface QueueItem {
     audioOnly?: string;
     pdf?: boolean;
     coverAt?: number;
+    /** v0.5.0 PDF 瘦身质量 */
+    pdfSlim?: number;
+    /** v0.5.0 硬字幕烧录路径 */
+    subtitle?: string;
+    /** v0.5.0 图片 OCR 识别文字 */
+    ocr?: boolean;
     replaceSource?: boolean;
   };
 }

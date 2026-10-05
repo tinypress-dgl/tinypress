@@ -130,9 +130,18 @@ pub struct CompressItem {
     /// v0.4.0：图片转 PDF
     #[serde(default)]
     pub pdf: bool,
+    /// v0.5.0：PDF 瘦身质量（q:v 1-31，越小越清晰），Some 时执行 PDF 瘦身
+    #[serde(default)]
+    pub pdf_slim: Option<u32>,
     /// v0.4.0：视频封面抽帧（时间点秒）
     #[serde(default)]
     pub cover_at: Option<f64>,
+    /// v0.5.0：硬字幕烧录（.srt 路径）
+    #[serde(default)]
+    pub subtitle: Option<String>,
+    /// v0.5.0：图片 OCR 识别文字（输出 .txt）
+    #[serde(default)]
+    pub ocr: bool,
     /// v0.4.0：输出替换源文件
     #[serde(default)]
     pub replace_source: bool,
@@ -290,7 +299,7 @@ pub fn compress_files(
         .collect();
 
     let mut snapshots = Vec::with_capacity(request.items.len());
-    for item in request.items {
+    for (idx, item) in request.items.into_iter().enumerate() {
         let preset = presets
             .get(&item.preset_id)
             .cloned()
@@ -299,16 +308,24 @@ pub fn compress_files(
         let input_size = std::fs::metadata(&item.input_path)
             .map(|m| m.len())
             .unwrap_or(0);
+        // v0.5.0：批量重命名模板变量 {date}/{time}/{seq} 在入队时按提交顺序渲染
+        let rename = item
+            .rename
+            .as_ref()
+            .map(|t| crate::engine::render_batch_template(t, idx + 1));
         let params = JobParams {
             preset_id: item.preset_id.clone(),
             output_dir: item.output_dir.clone(),
-            rename: item.rename.clone(),
+            rename,
             edit: item.edit.clone(),
             image_edit: item.image_edit.clone(),
             container: item.container.clone(),
             audio_only: item.audio_only.clone(),
             pdf: item.pdf,
+            pdf_slim: item.pdf_slim,
             cover_at: item.cover_at,
+            subtitle: item.subtitle.clone(),
+            ocr: item.ocr,
             replace_source: item.replace_source,
         };
         let job = JobState::new(
@@ -335,7 +352,10 @@ pub fn compress_files(
         let container = item.container.clone();
         let audio_only = item.audio_only.clone();
         let pdf = item.pdf;
+        let pdf_slim = item.pdf_slim;
         let cover_at = item.cover_at;
+        let subtitle = item.subtitle.clone();
+        let ocr = item.ocr;
         let replace_source = item.replace_source;
         tokio::spawn(async move {
             // 并发上限：acquire 到许可才开始执行（队列中等待的任务保持 queued）
@@ -354,7 +374,10 @@ pub fn compress_files(
                 container,
                 audio_only,
                 pdf,
+                pdf_slim,
                 cover_at,
+                subtitle.clone(),
+                ocr,
                 replace_source,
                 cancel,
                 permit,
@@ -380,7 +403,10 @@ async fn run_job(
     container: Option<String>,
     audio_only: Option<String>,
     pdf: bool,
+    pdf_slim: Option<u32>,
     cover_at: Option<f64>,
+    subtitle: Option<String>,
+    ocr: bool,
     replace_source: bool,
     cancel: Arc<AtomicBool>,
     permit: tokio::sync::OwnedSemaphorePermit,
@@ -444,7 +470,10 @@ async fn run_job(
         container.as_deref(),
         audio_only.as_deref(),
         pdf,
+        pdf_slim,
         cover_at,
+        subtitle.as_deref(),
+        ocr,
         replace_source,
         &cancel,
         on_progress,
@@ -509,7 +538,7 @@ pub async fn retry_job(
     id: String,
 ) -> Result<(), String> {
     let store = state.inner().clone();
-    let (job, preset, out_dir, rename, edit, image_edit, container, audio_only, pdf, cover_at, replace_source) =
+    let (job, preset, out_dir, rename, edit, image_edit, container, audio_only, pdf, pdf_slim, cover_at, subtitle, ocr, replace_source) =
     {
         let guard = store.0.lock().unwrap();
         let job = guard
@@ -538,7 +567,10 @@ pub async fn retry_job(
             params.container,
             params.audio_only,
             params.pdf,
+            params.pdf_slim,
             params.cover_at,
+            params.subtitle,
+            params.ocr,
             params.replace_source,
         )
     };
@@ -563,7 +595,7 @@ pub async fn retry_job(
         };
         run_job(
             app2, store2, job, preset, out_dir, rename, edit, image_edit, container, audio_only,
-            pdf, cover_at, replace_source, cancel, permit, cancels_inner,
+            pdf, pdf_slim, cover_at, subtitle, ocr, replace_source, cancel, permit, cancels_inner,
         )
         .await;
     });
@@ -747,6 +779,16 @@ pub fn pick_watermark_image() -> Option<String> {
     rfd::FileDialog::new()
         .set_title("选择水印图片")
         .add_filter("水印图片", &["png", "jpg", "jpeg", "webp", "bmp"])
+        .pick_file()
+        .map(|f| f.to_string_lossy().to_string())
+}
+
+/// v0.5.0：原生单选对话框（字幕文件 .srt），返回单个路径或 None
+#[tauri::command]
+pub fn pick_subtitle_file() -> Option<String> {
+    rfd::FileDialog::new()
+        .set_title("选择字幕文件")
+        .add_filter("字幕", &["srt", "ass"])
         .pick_file()
         .map(|f| f.to_string_lossy().to_string())
 }

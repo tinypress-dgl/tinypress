@@ -72,6 +72,12 @@ export default function App() {
   const [pdfMode, setPdfMode] = useState(false);
   const [coverAt, setCoverAt] = useState("");
   const [replaceSource, setReplaceSource] = useState(false);
+  // v0.5.0：PDF 瘦身 / 字幕烧录 / OCR / 统一重命名模板
+  const [pdfSlimMode, setPdfSlimMode] = useState(false);
+  const [pdfSlimQuality, setPdfSlimQuality] = useState(5);
+  const [subtitlePath, setSubtitlePath] = useState("");
+  const [ocrMode, setOcrMode] = useState(false);
+  const [batchRename, setBatchRename] = useState("");
   // 文件夹监控
   const [watchDir, setWatchDir] = useState("");
   const [watchPreset, setWatchPreset] = useState("");
@@ -219,29 +225,41 @@ export default function App() {
         items: pending.map((it) => {
           const isVideo =
             presets.find((p) => p.id === it.presetId)?.kind === "video";
+          const isPdf =
+            presets.find((p) => p.id === it.presetId)?.kind === "pdf";
           const coverNum = coverAt.trim() === "" ? undefined : Number(coverAt);
           return {
             inputPath: it.inputPath,
             presetId: it.presetId,
             outputDir:
               it.params?.outputDir ?? (outputDir.trim() || undefined),
-            rename: it.params?.rename ?? (renameTemplate.trim() || undefined),
+            rename:
+              batchRename.trim() ||
+              it.params?.rename ||
+              (renameTemplate.trim() || undefined),
             edit: it.edit ?? it.params?.edit,
             // v0.3.0：图片任务挂图片批量编辑；视频任务挂容器转换/音轨提取
             // v0.4.0：pdf 与 imageEdit 互斥（pdf 优先）；coverAt 与 container/audioOnly 互斥
+            // v0.5.0：OCR 与 pdf/imageEdit 互斥；subtitle 与 container/coverAt/audioOnly 互斥
             imageEdit:
-              !isVideo && imageEdit && !imageEditEmpty && !pdfMode
+              !isVideo && imageEdit && !imageEditEmpty && !pdfMode && !ocrMode
                 ? imageEdit
                 : undefined,
             container:
-              isVideo && videoContainer && coverNum === undefined
+              isVideo &&
+              videoContainer &&
+              coverNum === undefined &&
+              !subtitlePath
                 ? videoContainer
                 : undefined,
             audioOnly:
-              isVideo && audioOnly && coverNum === undefined
+              isVideo && audioOnly && coverNum === undefined && !subtitlePath
                 ? audioOnly
                 : undefined,
-            pdf: !isVideo && pdfMode ? true : undefined,
+            pdf: !isVideo && pdfMode && !ocrMode ? true : undefined,
+            pdfSlim: isPdf && pdfSlimMode ? pdfSlimQuality : undefined,
+            subtitle: isVideo && subtitlePath ? subtitlePath : undefined,
+            ocr: !isVideo && ocrMode ? true : undefined,
             coverAt: isVideo && coverNum !== undefined ? coverNum : undefined,
             replaceSource: replaceSource ? true : undefined,
           };
@@ -401,6 +419,16 @@ export default function App() {
             onCoverAt={setCoverAt}
             replaceSource={replaceSource}
             onReplaceSource={setReplaceSource}
+            pdfSlimMode={pdfSlimMode}
+            onPdfSlimMode={setPdfSlimMode}
+            pdfSlimQuality={pdfSlimQuality}
+            onPdfSlimQuality={setPdfSlimQuality}
+            subtitlePath={subtitlePath}
+            onSubtitlePath={setSubtitlePath}
+            ocrMode={ocrMode}
+            onOcrMode={setOcrMode}
+            batchRename={batchRename}
+            onBatchRename={setBatchRename}
           />
         </div>
 

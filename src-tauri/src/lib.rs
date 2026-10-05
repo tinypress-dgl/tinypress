@@ -67,6 +67,7 @@ pub fn run() {
             commands::pick_output_dir,
             commands::pick_input_files,
             commands::pick_watermark_image,
+            commands::pick_subtitle_file,
             commands::resolve_input_paths,
             commands::file_to_data_url
         ])

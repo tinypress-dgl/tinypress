@@ -128,7 +128,10 @@ async fn scan_once(
             container: None,
             audio_only: None,
             pdf: false,
+            pdf_slim: None,
             cover_at: None,
+            subtitle: None,
+            ocr: false,
             replace_source: false,
         };
         let job = JobState::new(
@@ -166,6 +169,9 @@ async fn scan_once(
             None,
             false,
             None,
+            None,
+            None,
+            false,
             false,
             &cancel,
             on_progress,

@@ -447,7 +447,121 @@ pub async fn compress(
     })
 }
 
-/// 视频目标大小压缩：兑现「朋友圈 ≤25MB」等预设 constraints.max_size_kb 语义。
+/// v0.5.0：硬字幕烧录（libass）。按预设编码参数重编码，把 .srt 烧进画面。
+/// 字幕先复制到输出同目录的扁平临时文件（规避 filter 路径转义），结束后清理。
+pub async fn burn_subtitle(
+    input: &Path,
+    output: &Path,
+    srt: &Path,
+    v: &VideoParams,
+    filters: Option<&serde_json::Value>,
+    cancel: &std::sync::atomic::AtomicBool,
+    mut on_progress: impl FnMut(u8),
+) -> Result<Output, String> {
+    on_progress(5);
+    if !srt.exists() {
+        return Err(format!("字幕文件不存在: {}", srt.display()));
+    }
+    let srt_local = output
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .join(format!(
+            ".tinypress_sub_{}.srt",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis())
+                .unwrap_or(0)
+        ));
+    std::fs::copy(srt, &srt_local).map_err(|e| format!("复制字幕失败: {e}"))?;
+    let cleanup = |_| {
+        let _ = std::fs::remove_file(&srt_local);
+    };
+
+    let mut args = build_args(input, output, v, filters, None, None, None, None);
+    // libass 字幕滤镜（force_style 指定中文字体族，三平台常见名）
+    let font_name = if cfg!(target_os = "macos") {
+        "PingFang SC"
+    } else if cfg!(target_os = "windows") {
+        "Microsoft YaHei"
+    } else {
+        "Noto Sans CJK SC"
+    };
+    let sub_filter = format!(
+        "subtitles='{}':force_style='FontName={},FontSize=20,Outline=1,Shadow=1'",
+        srt_local
+            .to_string_lossy()
+            .replace('\\', "\\\\")
+            .replace(':', "\\:")
+            .replace('\'', "\\'"),
+        font_name
+    );
+    if let Some(pos) = args.iter().position(|a| a == "-vf") {
+        let merged = format!("{},{}", args[pos + 1], sub_filter);
+        args[pos + 1] = merged;
+    } else {
+        args.push("-vf".into());
+        args.push(sub_filter.clone());
+    }
+
+    let result = run_encode(input, output, args, cancel, &mut on_progress).await;
+    let outcome = match result {
+        Ok(_) => {
+            let size = std::fs::metadata(output)
+                .map_err(|e| format!("读取输出文件失败: {e}"))?
+                .len();
+            Ok(Output {
+                output_path: output.to_path_buf(),
+                output_size: size,
+                skipped: false,
+            })
+        }
+        Err(e) => {
+            if e == "任务已取消" {
+                return Err(e);
+            }
+            // 硬件编码失败 → 软件回退
+            if let Some(fallback) = software_fallback(&v.codec) {
+                let mut v_sw = v.clone();
+                v_sw.codec = fallback.to_string();
+                let mut args_sw =
+                    build_args(input, output, &v_sw, filters, None, None, None, None);
+                if let Some(pos) = args_sw.iter().position(|a| a == "-vf") {
+                    args_sw[pos + 1] = format!("{},{}", args_sw[pos + 1], sub_filter);
+                } else {
+                    args_sw.push("-vf".into());
+                    args_sw.push(sub_filter);
+                }
+                on_progress(50);
+                let size = match run_encode(input, output, args_sw, cancel, &mut on_progress).await
+                {
+                    Ok(_) => std::fs::metadata(output)
+                        .map_err(|e| format!("读取输出文件失败: {e}"))?
+                        .len(),
+                    Err(e2) => {
+                        if e2 == "任务已取消" {
+                            cleanup(());
+                            return Err(e2);
+                        }
+                        cleanup(());
+                        return Err(e2);
+                    }
+                };
+                cleanup(());
+                Ok(Output {
+                    output_path: output.to_path_buf(),
+                    output_size: size,
+                    skipped: false,
+                })
+            } else {
+                cleanup(());
+                Err(e)
+            }
+        }
+    };
+    cleanup(());
+    on_progress(100);
+    outcome
+}
 /// - 软件编码器（x264/x265）：veryfast 探测轮二分 CRF（体积随 CRF 单调递减），
 ///   找到满足体积的最小 CRF 后用预设原 preset 做最终轮验证；
 /// - 硬件编码器（NVENC/QSV/VideoToolbox）：按目标码率迭代（-b:v），最多 4 轮；
@@ -794,6 +908,148 @@ async fn finish_remux(output: &Path) -> Result<Output, String> {
     let size = std::fs::metadata(output)
         .map_err(|e| format!("读取输出失败: {e}"))?
         .len();
+    Ok(Output {
+        output_path: output.to_path_buf(),
+        output_size: size,
+        skipped: false,
+    })
+}
+
+/// 视频源信息（智能压缩探测用）
+pub struct VideoProbe {
+    pub width: u32,
+    pub height: u32,
+    pub duration_secs: f64,
+    pub bitrate_kbps: u64,
+}
+
+/// ffprobe 探测视频源：分辨率/时长/码率（format.bit_rate 优先，缺省按体积/时长估算）
+pub async fn probe_video(input: &Path) -> Result<VideoProbe, String> {
+    let locator = BinaryLocator;
+    let ffprobe = locator
+        .find("ffprobe")
+        .ok_or_else(|| "未找到 ffprobe 二进制".to_string())?;
+    let input_s = input.to_str().ok_or("路径非法")?;
+    let out = Command::new(&ffprobe)
+        .args([
+            "-v",
+            "error",
+            "-select_streams",
+            "v:0",
+            "-show_entries",
+            "stream=width,height,duration,bit_rate:format=duration,bit_rate,size",
+            "-of",
+            "json",
+            input_s,
+        ])
+        .output()
+        .await
+        .map_err(|e| format!("启动 ffprobe 失败: {e}"))?;
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout)
+        .map_err(|e| format!("解析探测结果失败: {e}"))?;
+    let stream = &v["streams"][0];
+    let format = &v["format"];
+    let width: u32 = stream["width"].as_u64().unwrap_or(0) as u32;
+    let height: u32 = stream["height"].as_u64().unwrap_or(0) as u32;
+    let duration: f64 = stream["duration"]
+        .as_str()
+        .and_then(|s| s.parse().ok())
+        .or_else(|| stream["duration"].as_f64())
+        .or_else(|| format["duration"].as_str().and_then(|s| s.parse().ok()))
+        .unwrap_or(0.0);
+    let bitrate: u64 = stream["bit_rate"]
+        .as_str()
+        .and_then(|s| s.parse().ok())
+        .or_else(|| stream["bit_rate"].as_u64())
+        .or_else(|| format["bit_rate"].as_str().and_then(|s| s.parse().ok()))
+        .unwrap_or(0);
+    if width == 0 || height == 0 {
+        return Err("无法解析视频分辨率".into());
+    }
+    let bitrate = if bitrate > 0 {
+        bitrate / 1000
+    } else {
+        // 缺省按体积/时长估算
+        let size = format["size"].as_u64().unwrap_or(0);
+        if duration > 0.0 && size > 0 {
+            (size as f64 * 8.0 / 1000.0 / duration).round() as u64
+        } else {
+            0
+        }
+    };
+    Ok(VideoProbe {
+        width,
+        height,
+        duration_secs: duration,
+        bitrate_kbps: bitrate,
+    })
+}
+
+/// v0.5.0：智能压缩（编码器内容自适应，全开源参数）。
+/// 规则（依据实测校准）：
+///  - 高分辨率（≥1080p）且高码率（>3Mbps）→ x265 CRF26（HEVC 省 40%+，兼容性以 mp4/H.265 播放器为准）
+///  - 超高清（≥4K）→ x265 CRF28（超高码率源收益最大）
+///  - 长视频（>120s）且码率 >2Mbps → x265 CRF28
+///  - 低码率源（≤1.5Mbps，已接近最优）→ libx264 CRF23（保持兼容，避免重编码膨胀）
+///  - 低分辨率（<720p）→ libx264 CRF22（兼容优先）
+///  - 720p 中等码率 → x265 CRF27
+pub async fn smart_compress(
+    input: &Path,
+    output: &Path,
+    cancel: &std::sync::atomic::AtomicBool,
+    mut on_progress: impl FnMut(u8),
+) -> Result<Output, String> {
+    on_progress(10);
+    let probe = probe_video(input).await?;
+    let (codec, crf, preset) = if probe.width >= 3840 || probe.height >= 2160 {
+        ("libx265", 28.0, "medium")
+    } else if (probe.width >= 1920 || probe.height >= 1080) && probe.bitrate_kbps > 3000 {
+        ("libx265", 26.0, "medium")
+    } else if probe.duration_secs > 120.0 && probe.bitrate_kbps > 2000 {
+        ("libx265", 28.0, "medium")
+    } else if probe.width >= 1280 && probe.height >= 720 && probe.bitrate_kbps > 1500 {
+        ("libx265", 27.0, "medium")
+    } else if probe.bitrate_kbps <= 1500 {
+        // 低码率源：重编码收益有限，x264 兼容保底
+        ("libx264", 23.0, "medium")
+    } else {
+        ("libx264", 22.0, "medium")
+    };
+    on_progress(30);
+    let v = VideoParams {
+        codec: codec.into(),
+        crf,
+        preset: preset.into(),
+        level: None,
+        keyint: Some(250),
+        pix_fmt: None,
+        audio: None,
+    };
+    let args = build_args(input, output, &v, None, None, None, None, None);
+    let result = run_encode(input, output, args, cancel, &mut on_progress).await;
+    if let Err(e) = &result {
+        if e == "任务已取消" {
+            return Err(e.clone());
+        }
+        // x265 不可用 → 回退 x264（libx264 必然存在）
+        let mut v_fb = v.clone();
+        v_fb.codec = "libx264".into();
+        let args_fb = build_args(input, output, &v_fb, None, None, None, None, None);
+        on_progress(60);
+        run_encode(input, output, args_fb, cancel, &mut on_progress).await?;
+    }
+    let size = std::fs::metadata(output)
+        .map_err(|e| format!("读取输出文件失败: {e}"))?
+        .len();
+    println!(
+        "[智能压缩] {}x{} {:.0}s {}kbps -> {codec} CRF{crf} {}B",
+        probe.width,
+        probe.height,
+        probe.duration_secs,
+        probe.bitrate_kbps,
+        size
+    );
+    on_progress(100);
     Ok(Output {
         output_path: output.to_path_buf(),
         output_size: size,
@@ -1191,5 +1447,117 @@ mod tests {
             "应报无音轨错误，实际: {err}"
         );
         println!("[实测] 无音轨提取报错: {err}");
+    }
+
+    /// 集成实测：硬字幕烧录——srt 烧进画面后输出视频流有效且体积合理
+    #[tokio::test]
+    #[ignore = "集成实测：需要 ffmpeg 在 PATH"]
+    async fn burn_subtitle_real() {
+        let input = Path::new(
+            "/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/corpus/vid_bbb_1080p10s.mp4",
+        );
+        assert!(input.exists(), "缺少素材 {}", input.display());
+        let srt = Path::new(
+            "/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/verify/test_sub.srt",
+        );
+        if !srt.exists() {
+            std::fs::write(
+                srt,
+                "1\n00:00:00,000 --> 00:00:03,000\nTinyPress 字幕测试\n2\n00:00:03,000 --> 00:00:06,000\nOpen Source Only\n",
+            )
+            .unwrap();
+        }
+        let out = Path::new(
+            "/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/verify/out_sub.mp4",
+        );
+        let _ = std::fs::remove_file(out);
+        let cancel = std::sync::atomic::AtomicBool::new(false);
+        let v = VideoParams {
+            codec: "libx264".into(),
+            crf: 28.0,
+            preset: "veryfast".into(),
+            level: None,
+            keyint: Some(250),
+            pix_fmt: None,
+            audio: None,
+        };
+        let r = burn_subtitle(input, out, srt, &v, None, &cancel, |_| {})
+            .await
+            .unwrap_or_else(|e| panic!("字幕烧录失败: {e}"));
+        assert!(r.output_path.exists(), "输出未生成");
+        // 输出视频流应有效（h264 可解析）
+        let probe = std::process::Command::new("ffprobe")
+            .args([
+                "-v", "error", "-select_streams", "v:0", "-show_entries",
+                "stream=codec_name", "-of", "csv=p=0",
+            ])
+            .arg(out)
+            .output()
+            .unwrap();
+        assert_eq!(
+            String::from_utf8_lossy(&probe.stdout).trim(),
+            "h264",
+            "字幕输出应为 h264"
+        );
+        // 无残留临时 srt
+        assert!(
+            std::fs::read_dir(out.parent().unwrap())
+                .unwrap()
+                .filter_map(|e| e.ok())
+                .all(|e| !e.file_name().to_string_lossy().starts_with(".tinypress_sub_")),
+            "不应残留字幕临时文件"
+        );
+        println!(
+            "[实测] 字幕烧录: {} -> {} ({}B)",
+            input.display(),
+            r.output_path.display(),
+            r.output_size
+        );
+    }
+
+    /// 集成实测：智能压缩——高码率 1080p（9.4Mbps）应选 x265，体积显著下降
+    #[tokio::test]
+    #[ignore = "集成实测：需要 ffmpeg 在 PATH"]
+    async fn smart_compress_high_bitrate_picks_hevc() {
+        let input = Path::new(
+            "/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/verify/big.mp4",
+        );
+        assert!(input.exists(), "缺少素材 {}", input.display());
+        let out = Path::new(
+            "/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/verify/out_smart.mp4",
+        );
+        let _ = std::fs::remove_file(out);
+        let cancel = std::sync::atomic::AtomicBool::new(false);
+        let r = smart_compress(input, out, &cancel, |_| {})
+            .await
+            .unwrap_or_else(|e| panic!("智能压缩失败: {e}"));
+        assert!(r.output_path.exists(), "输出未生成");
+        let src = std::fs::metadata(input).unwrap().len();
+        // 高码率 1080p：x265 应显著压缩（允许 60% 上限，留出质量余量）
+        assert!(
+            r.output_size < src * 60 / 100,
+            "智能压缩应显著变小: 源 {src} 输出 {}",
+            r.output_size
+        );
+        // 输出应为 HEVC
+        let probe = std::process::Command::new("ffprobe")
+            .args([
+                "-v", "error", "-select_streams", "v:0", "-show_entries",
+                "stream=codec_name", "-of", "csv=p=0",
+            ])
+            .arg(out)
+            .output()
+            .unwrap();
+        assert_eq!(
+            String::from_utf8_lossy(&probe.stdout).trim(),
+            "hevc",
+            "智能压缩应输出 HEVC"
+        );
+        println!(
+            "[实测] 智能压缩: {}B -> {}B ({:.0}%, HEVC)",
+            src,
+            r.output_size,
+            r.output_size as f64 / src as f64 * 100.0
+        );
     }
 }

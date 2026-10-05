@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { ImageEditOptions } from "../types";
-import { pickWatermarkImage } from "../api";
+import { pickSubtitleFile, pickWatermarkImage } from "../api";
 
 const inputCls =
   "w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100 disabled:text-slate-400";
@@ -8,10 +8,12 @@ const labelCls = "block text-xs font-medium text-slate-500 mb-1";
 const secCls = "mb-3 rounded-xl border border-slate-200 p-3";
 
 /**
- * v0.4.0 全局批处理面板：
+ * v0.4.0/v0.5.0 全局批处理面板：
  *  - 图片批量编辑（尺寸/旋转/裁剪/文字水印/图片水印/输出格式），应用到队列中全部图片任务
- *  - 图片转 PDF（与图片编辑互斥，开启后图片任务全部转 PDF）
- *  - 视频容器转换 / 音轨提取 / 封面抽帧，应用到队列中全部视频任务
+ *  - 图片转 PDF / OCR 识别文字（互斥）
+ *  - 视频容器转换 / 音轨提取 / 封面抽帧 / 烧录字幕（互斥）
+ *  - PDF 瘦身（PDF 任务）
+ *  - 统一重命名模板（{seq}/{date}/{time} 等变量）
  *  - 替换源文件（全局）
  * 与 WPS「图片批量工具箱 + 视频工具箱」对齐，纯本地处理不上传。
  */
@@ -28,6 +30,16 @@ export default function BatchEditPanel({
   onCoverAt,
   replaceSource,
   onReplaceSource,
+  pdfSlimMode,
+  onPdfSlimMode,
+  pdfSlimQuality,
+  onPdfSlimQuality,
+  subtitlePath,
+  onSubtitlePath,
+  ocrMode,
+  onOcrMode,
+  batchRename,
+  onBatchRename,
 }: {
   imageEdit: ImageEditOptions | null;
   onImageEdit: (v: ImageEditOptions | null) => void;
@@ -41,6 +53,16 @@ export default function BatchEditPanel({
   onCoverAt: (v: string) => void;
   replaceSource: boolean;
   onReplaceSource: (v: boolean) => void;
+  pdfSlimMode: boolean;
+  onPdfSlimMode: (v: boolean) => void;
+  pdfSlimQuality: number;
+  onPdfSlimQuality: (v: number) => void;
+  subtitlePath: string;
+  onSubtitlePath: (v: string) => void;
+  ocrMode: boolean;
+  onOcrMode: (v: boolean) => void;
+  batchRename: string;
+  onBatchRename: (v: string) => void;
 }) {
   const [ie, setIe] = useState<ImageEditOptions>(
     imageEdit ?? {
@@ -138,14 +160,31 @@ export default function BatchEditPanel({
                 onChange={(e) => {
                   onPdfMode(e.target.checked);
                   if (e.target.checked) onAudioOnly("");
+                  if (e.target.checked) onOcrMode(false);
                 }}
                 className="h-3.5 w-3.5 accent-blue-600"
               />
               转 PDF
             </label>
+            <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
+              <input
+                type="checkbox"
+                checked={ocrMode}
+                onChange={(e) => {
+                  onOcrMode(e.target.checked);
+                  if (e.target.checked) onPdfMode(false);
+                  if (e.target.checked) onImageEdit(null);
+                }}
+                className="h-3.5 w-3.5 accent-blue-600"
+              />
+              OCR 识别文字
+            </label>
           </div>
           <p className={pdfMode ? "mb-2 text-xs text-amber-600" : "hidden"}>
             转 PDF 开启：全部图片任务输出单页 PDF（JPEG 直嵌，A4 适配），编辑参数不生效
+          </p>
+          <p className={ocrMode ? "mb-2 text-xs text-amber-600" : "hidden"}>
+            OCR 开启：全部图片任务识别文字并输出 .txt（本地 Tesseract，中文+英文）
           </p>
           <div className="mb-3 grid grid-cols-2 gap-2">
             {num("缩放 %", "scalePercent", "如 50=缩半", 1, 1, 1000)}
@@ -255,11 +294,13 @@ export default function BatchEditPanel({
               <input
                 type="checkbox"
                 checked={coverAt !== ""}
+                disabled={subtitlePath !== ""}
                 onChange={(e) => {
                   if (e.target.checked) {
                     onCoverAt(coverAt || "1");
                     onContainer("");
                     onAudioOnly("");
+                    onSubtitlePath("");
                   } else {
                     onCoverAt("");
                   }
@@ -273,7 +314,7 @@ export default function BatchEditPanel({
             <span className={labelCls}>容器转换</span>
             <select
               value={container}
-              disabled={audioOnly !== "" || coverAt !== ""}
+              disabled={audioOnly !== "" || coverAt !== "" || subtitlePath !== ""}
               className={inputCls}
               onChange={(e) => onContainer(e.target.value)}
             >
@@ -294,7 +335,7 @@ export default function BatchEditPanel({
             <span className={labelCls}>音轨提取</span>
             <select
               value={audioOnly}
-              disabled={container !== "" || coverAt !== ""}
+              disabled={container !== "" || coverAt !== "" || subtitlePath !== ""}
               className={inputCls}
               onChange={(e) => onAudioOnly(e.target.value)}
             >
@@ -305,6 +346,34 @@ export default function BatchEditPanel({
               <option value="flac">提取为 FLAC</option>
               <option value="ogg">提取为 OGG</option>
             </select>
+          </label>
+          <label className="mb-2 block">
+            <span className={labelCls}>烧录字幕（硬字幕）</span>
+            <div className="flex gap-2">
+              <input
+                placeholder="选择 .srt 字幕文件"
+                value={subtitlePath}
+                disabled={container !== "" || audioOnly !== "" || coverAt !== ""}
+                className={inputCls}
+                onChange={(e) => onSubtitlePath(e.target.value)}
+              />
+              <button
+                type="button"
+                disabled={container !== "" || audioOnly !== "" || coverAt !== ""}
+                onClick={async () => {
+                  const p = await pickSubtitleFile();
+                  if (p) {
+                    onSubtitlePath(p);
+                    onContainer("");
+                    onAudioOnly("");
+                    onCoverAt("");
+                  }
+                }}
+                className="shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 disabled:bg-slate-100 disabled:text-slate-400"
+              >
+                选择
+              </button>
+            </div>
           </label>
           <label
             className={
@@ -328,20 +397,68 @@ export default function BatchEditPanel({
         </div>
       </div>
 
-      {/* ===== 全局 ===== */}
-      <div className="flex items-center justify-between border-t border-slate-200 px-4 py-2.5">
+      {/* ===== v0.5.0 PDF 瘦身（PDF 任务） ===== */}
+      <div className="mb-3 rounded-xl border border-slate-200 p-3">
         <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
           <input
             type="checkbox"
-            checked={replaceSource}
-            onChange={(e) => onReplaceSource(e.target.checked)}
+            checked={pdfSlimMode}
+            onChange={(e) => onPdfSlimMode(e.target.checked)}
             className="h-3.5 w-3.5 accent-blue-600"
           />
-          输出后替换源文件
+          PDF 瘦身
           <span className="text-xs font-normal text-slate-500">
-            （原文件将被输出覆盖，操作不可撤销）
+            （选择「PDF 瘦身」预设时生效：解码逐页重压后重建，适合扫描/图片型 PDF）
           </span>
         </label>
+        <div
+          className={
+            pdfSlimMode
+              ? "mt-2 flex items-center gap-3"
+              : "pointer-events-none mt-2 flex items-center gap-3 opacity-40"
+          }
+        >
+          <span className="text-xs font-medium text-slate-500">质量</span>
+          <input
+            type="range"
+            min={1}
+            max={10}
+            value={pdfSlimQuality}
+            disabled={!pdfSlimMode}
+            className="w-40 accent-blue-600"
+            onChange={(e) => onPdfSlimQuality(Number(e.target.value))}
+          />
+          <span className="text-xs text-slate-600">
+            清晰度 {11 - pdfSlimQuality} / 压缩度 {pdfSlimQuality}
+          </span>
+        </div>
+      </div>
+
+      {/* ===== 全局 ===== */}
+      <div className="border-t border-slate-200 px-4 py-2.5">
+        <label className="mb-2 block">
+          <span className={labelCls}>统一重命名模板（覆盖队列全部任务）</span>
+          <input
+            placeholder='如 照片_{seq}_{name}，支持 {seq} 序号 / {date} 日期 / {time} 时间'
+            value={batchRename}
+            className={inputCls}
+            onChange={(e) => onBatchRename(e.target.value)}
+          />
+        </label>
+        <div className="flex items-center justify-between">
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+            <input
+              type="checkbox"
+              checked={replaceSource}
+              onChange={(e) => onReplaceSource(e.target.checked)}
+              className="h-3.5 w-3.5 accent-blue-600"
+            />
+            输出后替换源文件
+            <span className="text-xs font-normal text-slate-500">
+              （原文件将被输出覆盖，操作不可撤销）
+            </span>
+          </label>
+        </div>
       </div>
     </section>
   );

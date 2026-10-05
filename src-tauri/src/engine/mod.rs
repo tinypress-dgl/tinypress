@@ -1,5 +1,6 @@
 pub mod edit;
 pub mod image;
+pub mod ocr;
 pub mod pdf;
 pub mod queue;
 pub mod video;
@@ -44,6 +45,19 @@ pub fn apply_rename_template(template: &str, name: &str, kind: &str, ext: &str) 
     } else {
         cleaned
     }
+}
+
+/// v0.5.0 批量重命名模板扩展变量（入队时渲染，不依赖运行时结果）：
+/// - `{date}` 当天日期 YYYYMMDD
+/// - `{time}` 当前时间 HHMMSS
+/// - `{seq}`  队列序号（两位补零 01..99，按提交顺序）
+/// 剩余的 `{name}/{kind}/{ext}` 仍由 apply_rename_template 在运行时渲染。
+pub fn render_batch_template(template: &str, seq: usize) -> String {
+    let now = chrono::Local::now();
+    template
+        .replace("{date}", &now.format("%Y%m%d").to_string())
+        .replace("{time}", &now.format("%H%M%S").to_string())
+        .replace("{seq}", &format!("{:02}", seq))
 }
 
 /// 原子替换源文件：同目录直接 rename（原子）；异目录先复制到源目录临时文件再 rename。
@@ -108,7 +122,13 @@ pub async fn run_compression(
     container: Option<&str>,
     audio_only: Option<&str>,
     pdf: bool,
+    // v0.5.0：PDF 瘦身质量（q:v 1-31，越小越清晰）。Some 时执行 PDF 瘦身。
+    pdf_slim: Option<u32>,
     cover_at: Option<f64>,
+    // v0.5.0：硬字幕烧录（.srt 路径），Some 时烧录进画面
+    subtitle: Option<&str>,
+    // v0.5.0：图片 OCR 识别文字（输出 .txt）
+    ocr: bool,
     replace_source: bool,
     cancel: &std::sync::atomic::AtomicBool,
     mut on_progress: impl FnMut(u8),
@@ -149,6 +169,9 @@ pub async fn run_compression(
             let ext = if pdf {
                 // 转 PDF：输出 .pdf
                 "pdf".to_string()
+            } else if ocr {
+                // v0.5.0：OCR 识别文字 → 输出 .txt
+                "txt".to_string()
             } else if let Some(ie) = image_edit {
                 // 图片编辑模式：输出格式跟随编辑参数（缺省保持源扩展名）
                 edit::output_ext(&input, ie.format.as_deref())
@@ -166,6 +189,10 @@ pub async fn run_compression(
                     .to_string()
             };
             ("image", ext)
+        }
+        "pdf" => {
+            // v0.5.0：PDF 瘦身（输入 PDF，重建为压缩后的 PDF）
+            ("pdf", "pdf".to_string())
         }
         other => {
             job.status = "error".into();
@@ -194,13 +221,34 @@ pub async fn run_compression(
             } else if let Some(at) = cover_at {
                 // 封面抽帧：取视频指定时间点一帧输出 JPG
                 video::extract_cover(&input, &output, at, cancel).await
+            } else if let Some(srt) = subtitle {
+                // v0.5.0：硬字幕烧录（libass 重编码）
+                match preset.video.clone() {
+                    Some(params) => {
+                        video::burn_subtitle(
+                            &input,
+                            &output,
+                            Path::new(srt),
+                            &params,
+                            preset.filters.as_ref(),
+                            cancel,
+                            &mut on_progress,
+                        )
+                        .await
+                    }
+                    None => Err("预设缺少视频参数".to_string()),
+                }
             } else if container != "mp4" {
                 // 容器转换：优先 -c copy 不重编码，失败自动回退转码
                 video::remux(&input, &output, &container).await
             } else {
                 match preset.video.clone() {
                     Some(params) => {
-                        if let Some(kb) = max_size_kb {
+                        if params.codec == "smart" {
+                            // v0.5.0：智能压缩——按分辨率/码率/时长自动选编码器与质量
+                            video::smart_compress(&input, &output, cancel, &mut on_progress)
+                                .await
+                        } else if let Some(kb) = max_size_kb {
                             // 目标大小压缩（朋友圈 ≤25MB 等）：二分逼近，兑现预设语义
                             video::compress_to_size(
                                 &input,
@@ -236,6 +284,9 @@ pub async fn run_compression(
             if pdf {
                 // 图片转 PDF：单图单页，JPEG DCTDecode 直嵌
                 pdf::image_to_pdf(&input, &output, &mut on_progress).await
+            } else if ocr {
+                // v0.5.0：OCR 识别文字（Tesseract 全开源）
+                ocr::ocr_image(&input, &output, "chi_sim+eng", &mut on_progress).await
             } else if let Some(ie) = image_edit {
                 // 图片批量编辑模式（尺寸/旋转/裁剪/水印）：纯编辑，不压缩
                 edit::edit(&input, &output, ie, &mut on_progress).await
@@ -247,6 +298,11 @@ pub async fn run_compression(
                     None => Err("预设缺少图片参数".to_string()),
                 }
             }
+        }
+        "pdf" => {
+            // v0.5.0：PDF 瘦身（解码逐页重压后重建，仅图片型 PDF 适用）
+            let q = pdf_slim.unwrap_or(5).clamp(1, 31);
+            pdf::slim_pdf(&input, &output, q, &mut on_progress).await
         }
         _ => unreachable!(),
     };
@@ -512,7 +568,7 @@ mod tests {
         };
         let cancel = std::sync::atomic::AtomicBool::new(false);
         let out = run_compression(
-            job, &preset, Some(out_dir), None, None, None, None, None, false, None, false, &cancel, |_| {},
+            job, &preset, Some(out_dir), None, None, None, None, None, false, None, None, None, false, false, &cancel, |_| {},
         )
         .await;
         assert_eq!(out.status, "done", "err={:?}", out.error);
@@ -569,7 +625,7 @@ mod tests {
         };
         let cancel = std::sync::atomic::AtomicBool::new(false);
         let out = run_compression(
-            job, &preset, Some(out_dir), None, None, None, None, None, false, None, false, &cancel, |_| {},
+            job, &preset, Some(out_dir), None, None, None, None, None, false, None, None, None, false, false, &cancel, |_| {},
         )
         .await;
         assert_eq!(out.status, "done", "err={:?}", out.error);
@@ -630,7 +686,7 @@ mod tests {
         let cancel = std::sync::atomic::AtomicBool::new(false);
         // 输出目录 None → 与源同目录 → 同目录原子 rename
         let out = run_compression(
-            job, &preset, None, None, None, None, None, None, false, None, true, &cancel, |_| {},
+            job, &preset, None, None, None, None, None, None, false, None, None, None, false, true, &cancel, |_| {},
         )
         .await;
         assert_eq!(out.status, "done", "err={:?}", out.error);
@@ -661,5 +717,21 @@ mod tests {
             "[实测] 替换源: {}B -> {}B（已覆盖源文件，无残留）",
             input_size, new_size
         );
+    }
+
+    #[test]
+    fn batch_template_renders_variables() {
+        // {seq}/{date}/{time} 入队时渲染
+        let t = render_batch_template("照片_{seq}_{date}", 3);
+        assert!(t.starts_with("照片_03_"), "seq 两位补零: {t}");
+        // 日期为 8 位数字
+        let rest = &t["照片_03_".len()..];
+        assert_eq!(rest.len(), 8, "date YYYYMMDD: {rest}");
+        assert!(rest.chars().all(|c| c.is_ascii_digit()));
+
+        // 组合：batch 渲染后剩余 {name}/{kind}/{ext} 由运行时渲染（.jpg 由 resolve_output_path 追加）
+        let batch = render_batch_template("导出_{seq}_{name}.{kind}", 7);
+        let final_name = apply_rename_template(&batch, "IMG001", "image", "jpg");
+        assert_eq!(final_name, "导出_07_IMG001.image");
     }
 }
