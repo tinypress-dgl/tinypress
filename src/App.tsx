@@ -363,7 +363,6 @@ export default function App() {
         selected={selectedPreset}
         onSelect={setSelectedPreset}
         type={activeTab}
-        onTypeChange={setActiveTab}
       />
 
       <main className="flex min-w-0 flex-1 flex-col">
@@ -389,6 +388,45 @@ export default function App() {
                   : t("app.ffmpegMissing")
                 : t("app.engineChecking")}
             </p>
+          </div>
+          {/* 顶部导航：语言、图片、视频 */}
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs font-medium text-slate-600">
+              {t("settings.language")}
+              <select
+                value={langPref}
+                onChange={(e) => handleLangChange(e.target.value as LangPref)}
+                className="bg-transparent text-sm text-slate-700 focus:outline-none"
+              >
+                <option value="system">{t("settings.langSystem")}</option>
+                <option value="zh">{t("settings.langZh")}</option>
+                <option value="en">{t("settings.langEn")}</option>
+              </select>
+            </label>
+            <nav className="flex items-center gap-1 rounded-lg bg-slate-100 p-1">
+              <button
+                type="button"
+                onClick={() => setActiveTab("image")}
+                className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${
+                  activeTab === "image"
+                    ? "bg-blue-600 text-white"
+                    : "text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                {t("app.tabImages")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("video")}
+                className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${
+                  activeTab === "video"
+                    ? "bg-blue-600 text-white"
+                    : "text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                {t("app.tabVideos")}
+              </button>
+            </nav>
           </div>
           <div className="flex items-center gap-2">
             {totalPending > 0 && (
@@ -430,8 +468,6 @@ export default function App() {
             onStartWatch={handleStartWatch}
             onStopWatch={handleStopWatch}
             presets={presets}
-            language={langPref}
-            onLanguageChange={handleLangChange}
           />
 
           <CustomPresetEditor

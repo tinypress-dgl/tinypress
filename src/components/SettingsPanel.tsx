@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { pickOutputDir } from "../api";
 import type { Preset } from "../types";
-import { t, useLang, type LangPref } from "../i18n";
+import { t, useLang } from "../i18n";
 
 interface Props {
   outputDir: string;
@@ -16,8 +16,6 @@ interface Props {
   onStartWatch: () => void;
   onStopWatch: () => void;
   presets: Preset[];
-  language: LangPref;
-  onLanguageChange: (v: LangPref) => void;
 }
 
 /** 折叠式设置面板：界面语言 / 输出目录 / 命名模板 / 文件夹监控 */
@@ -34,8 +32,6 @@ export default function SettingsPanel({
   onStartWatch,
   onStopWatch,
   presets,
-  language,
-  onLanguageChange,
 }: Props) {
   const [open, setOpen] = useState(true);
   useLang();
@@ -58,22 +54,6 @@ export default function SettingsPanel({
 
       {open && (
         <div className="space-y-4 px-4 pb-4">
-          {/* 界面语言 */}
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-medium text-slate-500">
-              {t("settings.language")}
-            </span>
-            <select
-              value={language}
-              onChange={(e) => onLanguageChange(e.target.value as LangPref)}
-              className="w-48 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 outline-none focus:border-blue-500"
-            >
-              <option value="system">{t("settings.langSystem")}</option>
-              <option value="zh">{t("settings.langZh")}</option>
-              <option value="en">{t("settings.langEn")}</option>
-            </select>
-          </div>
-
           {/* 输出目录 + 命名模板 */}
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="block">
