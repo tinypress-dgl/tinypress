@@ -75,9 +75,7 @@ pub async fn edit(
     let mut main_chain: Vec<String> = Vec::new();
     if let Some(p) = opt.scale_percent {
         if (1.0..=1000.0).contains(&p) {
-            main_chain.push(format!(
-                "scale=iw*{p}/100:ih*{p}/100:flags=lanczos"
-            ));
+            main_chain.push(format!("scale=iw*{p}/100:ih*{p}/100:flags=lanczos"));
         }
     } else if opt.width.is_some() || opt.height.is_some() {
         let w = opt.width.unwrap_or(-1);
@@ -116,9 +114,8 @@ pub async fn edit(
     let mut text_filter: Option<String> = None;
     if has_text {
         let text = escape_drawtext(opt.watermark_text.as_ref().unwrap());
-        let font = pick_font().ok_or_else(|| {
-            "未找到可用中文字体（drawtext 需要 fontfile）".to_string()
-        })?;
+        let font = pick_font()
+            .ok_or_else(|| "未找到可用中文字体（drawtext 需要 fontfile）".to_string())?;
         let (x, y) = text_pos_expr(&pos);
         text_filter = Some(format!(
             "drawtext=text='{text}':fontfile={font}:fontsize={size}:fontcolor=white@1.0:alpha={alpha}:{x}:{y}"
@@ -149,7 +146,11 @@ pub async fn edit(
     }
 
     // 3) 组装 ffmpeg 命令
-    let mut args: Vec<String> = vec!["-y".into(), "-i".into(), input.to_string_lossy().into_owned()];
+    let mut args: Vec<String> = vec![
+        "-y".into(),
+        "-i".into(),
+        input.to_string_lossy().into_owned(),
+    ];
 
     let use_fc = img_filter.is_some();
     if use_fc {
@@ -308,16 +309,12 @@ mod tests {
     use super::*;
 
     fn verify_dir() -> PathBuf {
-        Path::new(
-            "/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/verify",
-        )
-        .to_path_buf()
+        Path::new("/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/verify")
+            .to_path_buf()
     }
     fn corpus(name: &str) -> PathBuf {
-        Path::new(
-            "/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/corpus",
-        )
-        .join(name)
+        Path::new("/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/corpus")
+            .join(name)
     }
 
     /// 集成实测：批量编辑——缩放 50% + 旋转 90° + 居中裁剪 80% + 文字水印
@@ -422,10 +419,7 @@ mod tests {
                 "{fmt} 魔数错误: {:02X?}",
                 &head[..magic.len().min(head.len())]
             );
-            println!(
-                "[实测] 格式扩展: jpg -> {fmt} ({}B)",
-                r.output_size
-            );
+            println!("[实测] 格式扩展: jpg -> {fmt} ({}B)", r.output_size);
         }
     }
 }

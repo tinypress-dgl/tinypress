@@ -53,7 +53,9 @@ fn edit_filter_chain(e: &EditOptions) -> Vec<String> {
     if e.trim_start.is_some() || e.trim_duration.is_some() {
         let start = e.trim_start.unwrap_or(0.0);
         match e.trim_duration {
-            Some(d) => chain.push(format!("trim=start={start}:duration={d},setpts=PTS-STARTPTS")),
+            Some(d) => chain.push(format!(
+                "trim=start={start}:duration={d},setpts=PTS-STARTPTS"
+            )),
             None => chain.push(format!("trim=start={start},setpts=PTS-STARTPTS")),
         }
     }
@@ -380,6 +382,7 @@ async fn run_encode(
 /// 视频压缩（CRF/CQ 质量模式）：spawn FFmpeg 并回报进度。
 /// - cancel 置位可随时中断；
 /// - 硬件编码失败自动回退到同代际软件编码（NVENC/QSV/VideoToolbox → x264/x265）。
+#[allow(clippy::too_many_arguments)]
 pub async fn compress(
     input: &Path,
     output: &Path,
@@ -523,8 +526,7 @@ pub async fn burn_subtitle(
             if let Some(fallback) = software_fallback(&v.codec) {
                 let mut v_sw = v.clone();
                 v_sw.codec = fallback.to_string();
-                let mut args_sw =
-                    build_args(input, output, &v_sw, filters, None, None, None, None);
+                let mut args_sw = build_args(input, output, &v_sw, filters, None, None, None, None);
                 if let Some(pos) = args_sw.iter().position(|a| a == "-vf") {
                     args_sw[pos + 1] = format!("{},{}", args_sw[pos + 1], sub_filter);
                 } else {
@@ -566,6 +568,7 @@ pub async fn burn_subtitle(
 ///   找到满足体积的最小 CRF 后用预设原 preset 做最终轮验证；
 /// - 硬件编码器（NVENC/QSV/VideoToolbox）：按目标码率迭代（-b:v），最多 4 轮；
 /// - 源文件已 ≤ 目标大小时直接转码一次，输出超限才进入逼近。
+#[allow(clippy::too_many_arguments)]
 pub async fn compress_to_size(
     input: &Path,
     output: &Path,
@@ -599,7 +602,14 @@ pub async fn compress_to_size(
     // 先按预设参数转码一次：源 ≤ 目标且输出仍 ≤ 目标时直接完成（最高质量）
     on_progress(8);
     let first_args = build_args(
-        input, output, v, filters, max_bitrate_kbps, None, edit, autocrop_spec.as_ref(),
+        input,
+        output,
+        v,
+        filters,
+        max_bitrate_kbps,
+        None,
+        edit,
+        autocrop_spec.as_ref(),
     );
     run_encode(input, output, first_args, cancel, &mut on_progress).await?;
     let first_size = std::fs::metadata(output)
@@ -629,7 +639,14 @@ pub async fn compress_to_size(
                     v2.preset = "veryfast".into();
                 }
                 let args = build_args(
-                    input, output, &v2, filters, max_bitrate_kbps, None, edit, autocrop_spec.as_ref(),
+                    input,
+                    output,
+                    &v2,
+                    filters,
+                    max_bitrate_kbps,
+                    None,
+                    edit,
+                    autocrop_spec.as_ref(),
                 );
                 run_encode(input, output, args, cancel, &mut on_progress).await?;
                 let size = std::fs::metadata(output)
@@ -649,14 +666,23 @@ pub async fn compress_to_size(
             let crf = best_crf.ok_or_else(|| {
                 format!(
                     "最低质量（CRF 51）仍超过 {max_size_kb}KB 限制（当前大小 {}KB）",
-                    std::fs::metadata(output).map(|m| m.len() / 1024).unwrap_or(0)
+                    std::fs::metadata(output)
+                        .map(|m| m.len() / 1024)
+                        .unwrap_or(0)
                 )
             })?;
             // 最终轮：用预设原 preset 验证（veryfast 同 CRF 下码率略高，需确认）
             let mut vf = v.clone();
             vf.crf = crf;
             let final_args = build_args(
-                input, output, &vf, filters, max_bitrate_kbps, None, edit, autocrop_spec.as_ref(),
+                input,
+                output,
+                &vf,
+                filters,
+                max_bitrate_kbps,
+                None,
+                edit,
+                autocrop_spec.as_ref(),
             );
             run_encode(input, output, final_args, cancel, &mut on_progress).await?;
             let final_size = std::fs::metadata(output)
@@ -666,7 +692,14 @@ pub async fn compress_to_size(
                 // 保守再降一档质量
                 vf.crf = (crf + 2.0).min(51.0);
                 let retry_args = build_args(
-                    input, output, &vf, filters, max_bitrate_kbps, None, edit, autocrop_spec.as_ref(),
+                    input,
+                    output,
+                    &vf,
+                    filters,
+                    max_bitrate_kbps,
+                    None,
+                    edit,
+                    autocrop_spec.as_ref(),
                 );
                 run_encode(input, output, retry_args, cancel, &mut on_progress).await?;
             }
@@ -694,7 +727,13 @@ pub async fn compress_to_size(
             let mut best: Option<Output> = None;
             for round in 0..4 {
                 let args = build_args(
-                    input, output, v, filters, max_bitrate_kbps, Some(bitrate), edit,
+                    input,
+                    output,
+                    v,
+                    filters,
+                    max_bitrate_kbps,
+                    Some(bitrate),
+                    edit,
                     autocrop_spec.as_ref(),
                 );
                 run_encode(input, output, args, cancel, &mut on_progress).await?;
@@ -727,7 +766,9 @@ pub async fn compress_to_size(
             } else {
                 Err(format!(
                     "最低码率仍超过 {max_size_kb}KB 限制（当前大小 {}KB）",
-                    std::fs::metadata(output).map(|m| m.len() / 1024).unwrap_or(0)
+                    std::fs::metadata(output)
+                        .map(|m| m.len() / 1024)
+                        .unwrap_or(0)
                 ))
             }
         }
@@ -875,14 +916,14 @@ pub async fn extract_audio(
         "m4a" => vec!["-c:a".into(), "aac".into(), "-b:a".into(), "192k".into()],
         "flac" => vec!["-c:a".into(), "flac".into()],
         "ogg" => vec!["-c:a".into(), "libvorbis".into(), "-q:a".into(), "4".into()],
-        _ => vec!["-c:a".into(), "libmp3lame".into(), "-q:a".into(), "4".into()],
+        _ => vec![
+            "-c:a".into(),
+            "libmp3lame".into(),
+            "-q:a".into(),
+            "4".into(),
+        ],
     };
-    let mut args = vec![
-        "-y".into(),
-        "-i".into(),
-        input_s.into(),
-        "-vn".into(),
-    ];
+    let mut args = vec!["-y".into(), "-i".into(), input_s.into(), "-vn".into()];
     args.extend(codec_args);
     args.push(output_s.into());
     let st = Command::new(&ffmpeg)
@@ -945,8 +986,8 @@ pub async fn probe_video(input: &Path) -> Result<VideoProbe, String> {
         .output()
         .await
         .map_err(|e| format!("启动 ffprobe 失败: {e}"))?;
-    let v: serde_json::Value = serde_json::from_slice(&out.stdout)
-        .map_err(|e| format!("解析探测结果失败: {e}"))?;
+    let v: serde_json::Value =
+        serde_json::from_slice(&out.stdout).map_err(|e| format!("解析探测结果失败: {e}"))?;
     let stream = &v["streams"][0];
     let format = &v["format"];
     let width: u32 = stream["width"].as_u64().unwrap_or(0) as u32;
@@ -1043,11 +1084,7 @@ pub async fn smart_compress(
         .len();
     println!(
         "[智能压缩] {}x{} {:.0}s {}kbps -> {codec} CRF{crf} {}B",
-        probe.width,
-        probe.height,
-        probe.duration_secs,
-        probe.bitrate_kbps,
-        size
+        probe.width, probe.height, probe.duration_secs, probe.bitrate_kbps, size
     );
     on_progress(100);
     Ok(Output {
@@ -1061,9 +1098,7 @@ pub async fn smart_compress(
 fn parse_time_secs(line: &str) -> Option<f64> {
     let pos = line.find("time=")?;
     let rest = line[pos + 5..].trim_start();
-    let time = rest
-        .split(|c: char| c.is_whitespace() || c == ',')
-        .next()?;
+    let time = rest.split(|c: char| c.is_whitespace() || c == ',').next()?;
     let parts: Vec<&str> = time.split(':').collect();
     if parts.len() != 3 {
         return None;
@@ -1150,7 +1185,10 @@ mod tests {
         let joined = args.join(" ");
         assert!(joined.contains("-crf 23.5"), "{joined}");
         assert!(joined.contains("-preset slow"), "{joined}");
-        assert!(joined.contains("keyint=250:min-keyint=250:scenecut=0"), "{joined}");
+        assert!(
+            joined.contains("keyint=250:min-keyint=250:scenecut=0"),
+            "{joined}"
+        );
     }
 
     #[test]
@@ -1236,10 +1274,7 @@ mod tests {
             "vf={vf}"
         );
         assert!(vf.contains("transpose=1"), "vf={vf}");
-        assert!(
-            vf.contains("crop=iw*80/100:ih*80/100"),
-            "vf={vf}"
-        );
+        assert!(vf.contains("crop=iw*80/100:ih*80/100"), "vf={vf}");
     }
 
     #[test]
@@ -1439,9 +1474,7 @@ mod tests {
             "/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/verify/out_audio_none.mp3",
         );
         let cancel = std::sync::atomic::AtomicBool::new(false);
-        let err = extract_audio(input, out, "mp3", &cancel)
-            .await
-            .unwrap_err();
+        let err = extract_audio(input, out, "mp3", &cancel).await.unwrap_err();
         assert!(
             err.contains("未检测到音频流"),
             "应报无音轨错误，实际: {err}"
@@ -1488,8 +1521,14 @@ mod tests {
         // 输出视频流应有效（h264 可解析）
         let probe = std::process::Command::new("ffprobe")
             .args([
-                "-v", "error", "-select_streams", "v:0", "-show_entries",
-                "stream=codec_name", "-of", "csv=p=0",
+                "-v",
+                "error",
+                "-select_streams",
+                "v:0",
+                "-show_entries",
+                "stream=codec_name",
+                "-of",
+                "csv=p=0",
             ])
             .arg(out)
             .output()
@@ -1504,7 +1543,10 @@ mod tests {
             std::fs::read_dir(out.parent().unwrap())
                 .unwrap()
                 .filter_map(|e| e.ok())
-                .all(|e| !e.file_name().to_string_lossy().starts_with(".tinypress_sub_")),
+                .all(|e| !e
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with(".tinypress_sub_")),
             "不应残留字幕临时文件"
         );
         println!(
@@ -1542,8 +1584,14 @@ mod tests {
         // 输出应为 HEVC
         let probe = std::process::Command::new("ffprobe")
             .args([
-                "-v", "error", "-select_streams", "v:0", "-show_entries",
-                "stream=codec_name", "-of", "csv=p=0",
+                "-v",
+                "error",
+                "-select_streams",
+                "v:0",
+                "-show_entries",
+                "stream=codec_name",
+                "-of",
+                "csv=p=0",
             ])
             .arg(out)
             .output()

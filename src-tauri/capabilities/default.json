@@ -7,6 +7,8 @@
     "urls": ["http://localhost:*", "http://127.0.0.1:*"]
   },
   "permissions": [
-    "core:default"
+    "core:default",
+    "notification:default",
+    "window-state:default"
   ]
 }

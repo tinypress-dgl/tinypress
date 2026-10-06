@@ -11,6 +11,16 @@ pub fn run() {
     let port = portpicker::pick_unused_port().expect("failed to find unused port");
     tauri::Builder::default()
         .plugin(tauri_plugin_localhost::Builder::new(port).build())
+        .plugin(tauri_plugin_notification::init())
+        // 单实例：重复启动时聚焦已有窗口（防并发写同一队列文件）
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            let _ = app.get_webview_window("main").map(|w| {
+                let _ = w.unminimize();
+                let _ = w.set_focus();
+            });
+        }))
+        // 窗口状态记忆：退出时记住位置/大小，下次启动恢复
+        .plugin(tauri_plugin_window_state::Builder::default().build())
         .manage(std::sync::Arc::new(engine::queue::JobStore::default()))
         .manage(commands::WatchState::default())
         .manage(commands::CancelStore::default())
@@ -28,6 +38,40 @@ pub fn run() {
             }
         })
         .setup(move |app| {
+            // 崩溃与应用日志：写入 app_log_dir/tinypress.log，商用可诊断
+            if let Ok(log_dir) = app.path().app_log_dir() {
+                let _ = std::fs::create_dir_all(&log_dir);
+                let log_path = log_dir.join("tinypress.log");
+                let panic_log = log_path.clone();
+                std::panic::set_hook(Box::new(move |info| {
+                    use std::io::Write;
+                    let line = format!(
+                        "[{}] PANIC: {}\n",
+                        chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
+                        info
+                    );
+                    if let Ok(mut f) = std::fs::OpenOptions::new()
+                        .create(true)
+                        .append(true)
+                        .open(&panic_log)
+                    {
+                        let _ = f.write_all(line.as_bytes());
+                    }
+                }));
+                use std::io::Write;
+                if let Ok(mut f) = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(&log_path)
+                {
+                    let _ = writeln!(
+                        f,
+                        "[{}] TinyPress v{} started",
+                        chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
+                        env!("CARGO_PKG_VERSION")
+                    );
+                }
+            }
             // 恢复上次会话的任务队列（未完成任务置 queued，等待用户重新开始）
             let store = app.state::<std::sync::Arc<engine::queue::JobStore>>();
             commands::load_jobs(app.handle(), store.inner());
@@ -41,8 +85,8 @@ pub fn run() {
             };
             WebviewWindowBuilder::new(app, "main", url)
                 .title("TinyPress 速压")
-                .inner_size(1080.0, 720.0)
-                .min_inner_size(800.0, 600.0)
+                .inner_size(1200.0, 800.0)
+                .min_inner_size(900.0, 680.0)
                 .center()
                 .build()?;
             Ok(())

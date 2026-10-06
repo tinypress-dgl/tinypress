@@ -63,7 +63,7 @@ export default function SettingsPanel({
               <div className="flex gap-2">
                 <input
                   className={inputCls}
-                  placeholder="如 D:\compressed"
+                  placeholder={t("out.pathExample")}
                   value={outputDir}
                   onChange={(e) => onOutputDirChange(e.target.value)}
                 />
@@ -117,7 +117,7 @@ export default function SettingsPanel({
                 <div className="flex gap-2">
                   <input
                     className={inputCls}
-                    placeholder="如 D:\watch"
+                    placeholder={t("out.pathExampleWatch")}
                     value={watchDir}
                     onChange={(e) => onWatchDirChange(e.target.value)}
                   />

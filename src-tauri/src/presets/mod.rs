@@ -144,7 +144,7 @@ mod tests {
         let file = dir.join("custom-presets.json");
 
         let p1 = sample_preset("custom-a", "预设A");
-        presets_save(&file, &[p1.clone()]).unwrap();
+        presets_save(&file, std::slice::from_ref(&p1)).unwrap();
         let loaded = load_custom(&file);
         assert_eq!(loaded.len(), 1);
         assert_eq!(loaded[0].id, "custom-a");
@@ -168,7 +168,10 @@ mod tests {
 
     #[test]
     fn merge_custom_overrides_builtin() {
-        let builtin = vec![sample_preset("bilibili-1080p", "内置"), sample_preset("x", "X")];
+        let builtin = vec![
+            sample_preset("bilibili-1080p", "内置"),
+            sample_preset("x", "X"),
+        ];
         let custom = vec![
             sample_preset("bilibili-1080p", "自定义覆盖"), // 同 id 覆盖
             sample_preset("custom-new", "新增"),

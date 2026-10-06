@@ -111,10 +111,8 @@ mod tests {
     use super::*;
 
     fn verify_dir() -> PathBuf {
-        Path::new(
-            "/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/verify",
-        )
-        .to_path_buf()
+        Path::new("/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/verify")
+            .to_path_buf()
     }
 
     /// 集成实测：带中文文字的图片 → OCR 提取出文字

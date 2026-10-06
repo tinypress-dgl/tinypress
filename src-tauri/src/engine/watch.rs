@@ -48,9 +48,12 @@ impl WatchHandle {
 }
 
 /// 监控循环的事件回调（由命令层包装为 tauri emit）
+pub type ProgressCb = Box<dyn Fn(&str, u8) + Send + Sync>;
+pub type DoneCb = Box<dyn Fn(JobState) + Send + Sync>;
+
 pub struct WatchEvents {
-    pub on_progress: Box<dyn Fn(&str, u8) + Send + Sync>,
-    pub on_done: Box<dyn Fn(JobState) + Send + Sync>,
+    pub on_progress: ProgressCb,
+    pub on_done: DoneCb,
 }
 
 /// 启动监控循环（常驻任务）。`presets` 中缺失 preset_id 时静默停止。

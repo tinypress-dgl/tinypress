@@ -65,7 +65,10 @@ pub fn save_settings(app: AppHandle, settings: AppSettings) -> Result<(), String
 pub fn list_presets(app: AppHandle) -> Result<Vec<Preset>, String> {
     let builtin = presets::load();
     let file = custom_presets_file(&app)?;
-    Ok(presets::merge_with_custom(builtin, presets::load_custom(&file)))
+    Ok(presets::merge_with_custom(
+        builtin,
+        presets::load_custom(&file),
+    ))
 }
 
 /// 保存/更新一个自定义预设（按 id 覆盖；id 以 custom- 前缀由前端生成）
@@ -235,8 +238,14 @@ pub fn check_update(app: AppHandle) -> Result<UpdateInfo, String> {
     let s = std::fs::read_to_string(&file).map_err(|e| format!("读取更新配置失败: {e}"))?;
     let v: serde_json::Value =
         serde_json::from_str(&s).map_err(|e| format!("解析更新配置失败: {e}"))?;
-    let update_url = v.get("update_url").and_then(|u| u.as_str()).map(String::from);
-    Ok(UpdateInfo { current, update_url })
+    let update_url = v
+        .get("update_url")
+        .and_then(|u| u.as_str())
+        .map(String::from);
+    Ok(UpdateInfo {
+        current,
+        update_url,
+    })
 }
 
 /// 全局取消标志存储：job_id → 取消标志（running 任务置位后由引擎 kill ffmpeg）
@@ -388,7 +397,7 @@ pub fn compress_files(
             .await;
         });
     }
-    persist_jobs(&app, &state.inner());
+    persist_jobs(&app, state.inner());
     Ok(snapshots)
 }
 
@@ -487,10 +496,36 @@ async fn run_job(
         job.error = None;
     }
     let done_id = job.id.clone();
+    app_log(
+        &app,
+        &format!(
+            "job {} status={} file={}",
+            job.id, job.status, job.input_path
+        ),
+    );
     finish_job(&app, &store, job);
     persist_jobs(&app, &store);
     cancels.lock().unwrap().remove(&done_id);
     drop(permit);
+}
+
+/// 应用日志：追加到 app_log_dir/tinypress.log（崩溃/任务事件，商用可诊断）
+fn app_log(app: &AppHandle, line: &str) {
+    use std::io::Write;
+    if let Ok(log_dir) = app.path().app_log_dir() {
+        if let Ok(mut f) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(log_dir.join("tinypress.log"))
+        {
+            let _ = writeln!(
+                f,
+                "[{}] {}",
+                chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
+                line
+            );
+        }
+    }
 }
 
 fn finish_job(app: &AppHandle, store: &Arc<JobStore>, job: JobState) {
@@ -540,8 +575,22 @@ pub async fn retry_job(
     id: String,
 ) -> Result<(), String> {
     let store = state.inner().clone();
-    let (job, preset, out_dir, rename, edit, image_edit, container, audio_only, pdf, pdf_slim, cover_at, subtitle, ocr, replace_source) =
-    {
+    let (
+        job,
+        preset,
+        out_dir,
+        rename,
+        edit,
+        image_edit,
+        container,
+        audio_only,
+        pdf,
+        pdf_slim,
+        cover_at,
+        subtitle,
+        ocr,
+        replace_source,
+    ) = {
         let guard = store.0.lock().unwrap();
         let job = guard
             .iter()
@@ -596,8 +645,25 @@ pub async fn retry_job(
             return;
         };
         run_job(
-            app2, store2, job, preset, out_dir, rename, edit, image_edit, container, audio_only,
-            pdf, pdf_slim, cover_at, subtitle, ocr, replace_source, cancel, permit, cancels_inner,
+            app2,
+            store2,
+            job,
+            preset,
+            out_dir,
+            rename,
+            edit,
+            image_edit,
+            container,
+            audio_only,
+            pdf,
+            pdf_slim,
+            cover_at,
+            subtitle,
+            ocr,
+            replace_source,
+            cancel,
+            permit,
+            cancels_inner,
         )
         .await;
     });
@@ -695,9 +761,11 @@ pub fn start_watch(
         rename: request.rename,
     };
     let stop = Arc::new(AtomicBool::new(false));
-    watch_state.0.lock().unwrap().replace(WatchHandle {
-        stop: stop.clone(),
-    });
+    watch_state
+        .0
+        .lock()
+        .unwrap()
+        .replace(WatchHandle { stop: stop.clone() });
 
     let store = state.inner().clone();
     let app_progress = app.clone();
@@ -762,8 +830,8 @@ pub fn pick_input_files() -> Option<Vec<String>> {
         .add_filter(
             "图片/视频",
             &[
-                "jpg", "jpeg", "png", "webp", "avif", "gif", "bmp", "mp4", "mov", "mkv",
-                "avi", "webm", "flv", "ts", "m4v", "wmv",
+                "jpg", "jpeg", "png", "webp", "avif", "gif", "bmp", "mp4", "mov", "mkv", "avi",
+                "webm", "flv", "ts", "m4v", "wmv",
             ],
         )
         .pick_files()
@@ -829,8 +897,8 @@ fn is_media_file(p: &std::path::Path) -> bool {
     }
 }
 
-fn collect_media_files(dir: &PathBuf, out: &mut Vec<String>) -> Result<(), String> {
-    let mut stack = vec![dir.clone()];
+fn collect_media_files(dir: &std::path::Path, out: &mut Vec<String>) -> Result<(), String> {
+    let mut stack = vec![dir.to_path_buf()];
     let mut guard: usize = 0;
     while let Some(d) = stack.pop() {
         guard += 1;

@@ -1,7 +1,7 @@
 # TinyPress 合规与第三方组件清单
 
 > 原则：**代码全部原创**；开源组件可用，但必须遵守其许可证；不复制任何产品的代码、UI 视觉资产与营销文案。
-> 更新日期：2026-09-15 · 每次新增依赖/素材时必须同步更新本文件。
+> 更新日期：2026-10-06 · 每次新增依赖/素材时必须同步更新本文件。
 
 ---
 
@@ -25,6 +25,7 @@
 | react / react-dom | MIT | ✅ | 保留声明 |
 | @tauri-apps/api | MIT / Apache-2.0 | ✅ | |
 | @tauri-apps/cli | MIT / Apache-2.0 | ✅ | 仅构建期 |
+| @tauri-apps/plugin-window-state | MIT / Apache-2.0 | ✅ | 窗口位置/大小记忆 |
 | vite | MIT | ✅ | |
 | typescript | Apache-2.0 | ✅ | |
 | tailwindcss | MIT | ✅ | |
@@ -36,6 +37,9 @@
 | crate | 许可证 | 商用 | 备注 |
 |---|---|---|---|
 | tauri / tauri-build | MIT / Apache-2.0 | ✅ | |
+| tauri-plugin-single-instance | MIT / Apache-2.0 | ✅ | 单实例锁（防重复启动） |
+| tauri-plugin-window-state | MIT / Apache-2.0 | ✅ | 窗口状态记忆 |
+| tauri-plugin-notification | MIT / Apache-2.0 | ✅ | 系统通知 |
 | serde / serde_json | MIT / Apache-2.0 | ✅ | |
 | tokio | MIT | ✅ | |
 

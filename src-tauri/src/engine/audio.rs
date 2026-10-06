@@ -31,7 +31,11 @@ pub async fn transcode_audio(
         "opus" | "ogg" => ("libopus", "ogg"),
         other => return Err(format!("不支持的音频编码器: {other}")),
     };
-    if !output.to_string_lossy().to_ascii_lowercase().ends_with(&format!(".{ext}")) {
+    if !output
+        .to_string_lossy()
+        .to_ascii_lowercase()
+        .ends_with(&format!(".{ext}"))
+    {
         return Err(format!("输出扩展名与编码器不匹配，应为 .{ext}"));
     }
 
@@ -65,7 +69,9 @@ pub async fn transcode_audio(
         return Err("已取消".to_string());
     }
     on_progress(90);
-    let size = std::fs::metadata(output).map_err(|e| format!("读取输出失败: {e}"))?.len();
+    let size = std::fs::metadata(output)
+        .map_err(|e| format!("读取输出失败: {e}"))?
+        .len();
     on_progress(100);
     Ok(Output {
         output_path: output.to_path_buf(),
@@ -83,10 +89,8 @@ mod tests {
     use super::*;
 
     fn verify_dir() -> PathBuf {
-        Path::new(
-            "/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/verify",
-        )
-        .to_path_buf()
+        Path::new("/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/verify")
+            .to_path_buf()
     }
 
     /// 集成实测：音频转 MP3（从视频提取音轨 → 转码）
@@ -102,8 +106,15 @@ mod tests {
             let status = if src.exists() {
                 Command::new(&ffmpeg)
                     .args([
-                        "-hide_banner", "-y", "-i", src.to_str().unwrap(),
-                        "-t", "5", "-vn", "-c:a", "pcm_s16le",
+                        "-hide_banner",
+                        "-y",
+                        "-i",
+                        src.to_str().unwrap(),
+                        "-t",
+                        "5",
+                        "-vn",
+                        "-c:a",
+                        "pcm_s16le",
                         input.to_str().unwrap(),
                     ])
                     .status()
@@ -112,8 +123,15 @@ mod tests {
             } else {
                 Command::new(&ffmpeg)
                     .args([
-                        "-hide_banner", "-y", "-f", "lavfi", "-i", "sine=frequency=440:duration=5",
-                        "-c:a", "pcm_s16le", input.to_str().unwrap(),
+                        "-hide_banner",
+                        "-y",
+                        "-f",
+                        "lavfi",
+                        "-i",
+                        "sine=frequency=440:duration=5",
+                        "-c:a",
+                        "pcm_s16le",
+                        input.to_str().unwrap(),
                     ])
                     .status()
                     .await

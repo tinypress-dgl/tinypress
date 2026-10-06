@@ -12,6 +12,10 @@ interface Props {
   onCancel?: (id: string) => void;
   /** 重试 error/cancelled 任务 */
   onRetry?: (id: string) => void;
+  /** 清除已完成/失败/已取消的任务 */
+  onClearFinished?: () => void;
+  /** 调整 queued 任务顺序：dir = -1 上移 / 1 下移 */
+  onMove?: (id: string, dir: -1 | 1) => void;
 }
 
 function formatSize(bytes?: number): string {
@@ -147,6 +151,8 @@ export default function QueueList({
   onEditChange,
   onCancel,
   onRetry,
+  onClearFinished,
+  onMove,
 }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -158,8 +164,23 @@ export default function QueueList({
     );
   }
 
+  const hasFinished = items.some(
+    (x) => x.status === "done" || x.status === "error" || x.status === "cancelled"
+  );
+
   return (
     <div className="flex flex-col">
+      {hasFinished && onClearFinished && (
+        <div className="flex items-center justify-end border-b border-slate-100 bg-slate-50/60 px-4 py-1.5">
+          <button
+            type="button"
+            onClick={() => onClearFinished()}
+            className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] text-slate-500 hover:bg-slate-50"
+          >
+            {t("q.clearFinished")}
+          </button>
+        </div>
+      )}
       {items.map((it) => {
         const meta = STATUS_META[it.status];
         const ratio =
@@ -205,9 +226,40 @@ export default function QueueList({
                 )}
                 {summary && <span className="ml-2 text-blue-500">{summary}</span>}
               </span>
-              <span className="flex shrink-0 items-center gap-2">
+              <span className="flex shrink-0 items-center gap-1">
+                {it.status === "queued" && onMove && (
+                  <>
+                    <button
+                      type="button"
+                      title={t("q.moveUp")}
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        onMove(it.id, -1);
+                      }}
+                      className="rounded border border-slate-200 px-1.5 py-0.5 text-[11px] text-slate-500 hover:bg-white"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      title={t("q.moveDown")}
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        onMove(it.id, 1);
+                      }}
+                      className="rounded border border-slate-200 px-1.5 py-0.5 text-[11px] text-slate-500 hover:bg-white"
+                    >
+                      ↓
+                    </button>
+                  </>
+                )}
                 {it.error && (
-                  <span className="truncate text-red-400">{it.error}</span>
+                  <span
+                    className="max-w-40 truncate text-red-400"
+                    title={it.error}
+                  >
+                    {it.error}
+                  </span>
                 )}
                 {it.status === "running" && onCancel && (
                   <button

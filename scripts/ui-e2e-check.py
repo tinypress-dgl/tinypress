@@ -71,7 +71,7 @@ INTERNALS = """
     event: { listen: async (e, h) => { (listeners[e] = listeners[e] || []).push(h); return () => {}; } }
   };
 
-  window.__triggerDrop = (paths) => fire('tauri://drag-drop', { type: 'drop', paths, position: { x: 10, y: 10 } });
+  window.__triggerDrop = (paths) => fire('native-files-dropped', paths);
   window.__triggerProgress = (jobId, progress) => fire('compress_progress', { jobId, progress });
   window.__triggerDone = (job) => fire('compress_done', job);
   window.__getMockLog = () => log;
@@ -85,7 +85,7 @@ def main():
         errors = []
         page.on("pageerror", lambda e: errors.append(str(e)))
         page.add_init_script(INTERNALS)
-        page.goto("http://localhost:1420/", wait_until="networkidle")
+        page.goto("http://localhost:8123/", wait_until="networkidle")
         page.wait_for_timeout(2500)
 
         results = []
@@ -101,10 +101,21 @@ def main():
         # 2. 预设渲染
         check("预设列表渲染", "B站 1080P" in body and "拼多多主图" in body)
 
-        # 3. 版本
-        check("版本 v0.1.0", "v0.1.0" in body)
+        # 3. 版本与关于对话框
+        page.locator("text=v0.1.0").first.click()
+        page.wait_for_timeout(600)
+        body_about = page.locator("body").inner_text()
+        check("关于对话框打开", "关于 TinyPress" in body_about)
+        check("版本 v0.1.0", "v0.1.0" in body_about)
+        # 关闭关于对话框（点击遮罩），避免拦截后续点击
+        page.mouse.click(10, 10)
+        page.wait_for_timeout(400)
 
-        # 4. 拖放入队
+        # 4. 切视频 Tab → 选预设 → 拖放入队（预设按当前 Tab 过滤）
+        page.locator("text=视频").first.click()
+        page.wait_for_timeout(400)
+        page.locator("select").nth(1).select_option("bili1080")
+        page.wait_for_timeout(300)
         page.evaluate("window.__triggerDrop(['/tmp/test.mp4','/tmp/pic.jpg'])")
         page.wait_for_timeout(1000)
         body2 = page.locator("body").inner_text()
@@ -114,7 +125,12 @@ def main():
         page.locator("text=test.mp4").first.click()
         page.wait_for_timeout(600)
         body3 = page.locator("body").inner_text()
-        check("点击队列项出现对比面板", ("压缩前" in body3) or ("原始" in body3) or ("对比" in body3))
+        check("点击队列项出现对比面板", ("原始文件" in body3) or ("压缩后" in body3) or ("对比" in body3))
+        # 关闭对比浮层，避免拦截后续点击
+        close_btn = page.locator("text=关闭").first
+        if close_btn.count() > 0:
+            close_btn.click()
+            page.wait_for_timeout(400)
 
         # 6. 开始压缩 → 进度事件 → 完成事件
         start_btn = page.locator("text=开始压缩")
@@ -135,6 +151,16 @@ def main():
         # 7. 设置保存 camelCase
         try:
             page.locator("text=输出与自动压缩设置").first.click()
+            page.wait_for_timeout(300)
+            # 若面板默认展开，先点收起/展开切换
+            try:
+                if page.locator("text=收起").count() > 0:
+                    page.locator("text=收起").first.click()
+                    page.wait_for_timeout(300)
+                    page.locator("text=输出与自动压缩设置").first.click()
+                    page.wait_for_timeout(300)
+            except Exception:
+                pass
             page.wait_for_timeout(600)
             labels = page.locator("label")
             filled = False
@@ -155,7 +181,7 @@ def main():
         except Exception as e:
             check("设置保存验证", False, f"异常: {e}")
 
-        # 8. 检查更新
+        # 8. 检查更新（关于对话框内）
         upd = page.locator("text=检查更新")
         if upd.count() > 0:
             upd.first.click()

@@ -22,9 +22,8 @@ pub struct Output {
 }
 
 /// 命名模板占位符：
-/// - `{name}`  原文件名（不含扩展名）
-/// - `{kind}`  任务类型（video / image）
-/// - `{ext}`   目标格式扩展名（如 mp4 / jpg / webp）
+/// 支持变量：`{name}` 原文件名（不含扩展名）、`{kind}` 任务类型（video / image）、
+/// `{ext}` 目标格式扩展名（如 mp4 / jpg / webp）。
 /// 默认模板等价于 `{name}.{kind}`（即原行为 `原名.video.mp4`）。
 /// 模板中的非法字符与路径分隔符会被清洗，防路径穿越。
 pub fn apply_rename_template(template: &str, name: &str, kind: &str, ext: &str) -> String {
@@ -49,9 +48,8 @@ pub fn apply_rename_template(template: &str, name: &str, kind: &str, ext: &str) 
 }
 
 /// v0.5.0 批量重命名模板扩展变量（入队时渲染，不依赖运行时结果）：
-/// - `{date}` 当天日期 YYYYMMDD
-/// - `{time}` 当前时间 HHMMSS
-/// - `{seq}`  队列序号（两位补零 01..99，按提交顺序）
+/// 支持 `{date}`（当天日期 YYYYMMDD）、`{time}`（当前时间 HHMMSS）、
+/// `{seq}`（队列序号，两位补零 01..99，按提交顺序）。
 /// 剩余的 `{name}/{kind}/{ext}` 仍由 apply_rename_template 在运行时渲染。
 pub fn render_batch_template(template: &str, seq: usize) -> String {
     let now = chrono::Local::now();
@@ -113,6 +111,7 @@ pub fn resolve_output_path(
 /// cancel 置位后任务中断（返回 cancelled 语义由调用方处理）。
 /// v0.3.0 扩展：image_edit（图片批量编辑）、container（视频容器转换）、audio_only（音轨提取）。
 /// v0.4.0 扩展：pdf（图片转 PDF）、cover_at（视频封面抽帧）、replace_source（输出替换源文件）。
+#[allow(clippy::too_many_arguments)] // 压缩入口参数多但语义内聚，重构会破坏命令行级稳定性
 pub async fn run_compression(
     mut job: JobState,
     preset: &Preset,
@@ -263,8 +262,7 @@ pub async fn run_compression(
                     Some(params) => {
                         if params.codec == "smart" {
                             // v0.5.0：智能压缩——按分辨率/码率/时长自动选编码器与质量
-                            video::smart_compress(&input, &output, cancel, &mut on_progress)
-                                .await
+                            video::smart_compress(&input, &output, cancel, &mut on_progress).await
                         } else if let Some(kb) = max_size_kb {
                             // 目标大小压缩（朋友圈 ≤25MB 等）：二分逼近，兑现预设语义
                             video::compress_to_size(
@@ -328,13 +326,8 @@ pub async fn run_compression(
                 .as_ref()
                 .map(|a| a.codec.clone())
                 .unwrap_or_else(|| "mp3".to_string());
-            let bitrate = preset
-                .audio
-                .as_ref()
-                .map(|a| a.bitrate_kbps)
-                .unwrap_or(128);
-            audio::transcode_audio(&input, &output, &codec, bitrate, cancel, &mut on_progress)
-                .await
+            let bitrate = preset.audio.as_ref().map(|a| a.bitrate_kbps).unwrap_or(128);
+            audio::transcode_audio(&input, &output, &codec, bitrate, cancel, &mut on_progress).await
         }
         _ => unreachable!(),
     };
@@ -347,9 +340,8 @@ pub async fn run_compression(
             job.output_path = Some(out.output_path.to_string_lossy().into_owned());
             if out.skipped {
                 // 源已满足目标大小：未重新编码，直接提示（避免「越压越大」）
-                job.warning = Some(
-                    "源文件已满足大小要求，未重新压缩（直接使用原文件）".to_string(),
-                );
+                job.warning =
+                    Some("源文件已满足大小要求，未重新压缩（直接使用原文件）".to_string());
             } else if job.input_size > 0 && out.output_size >= job.input_size {
                 // 治理「压缩后变大」：输出未小于源 → 非致命提示（用户感知「没达到预期」的主因之一）
                 let ratio =
@@ -366,9 +358,8 @@ pub async fn run_compression(
                         Ok(()) => {
                             out.output_path = input.clone();
                             job.output_path = Some(input.to_string_lossy().into_owned());
-                            job.output_size = Some(
-                                std::fs::metadata(&input).map(|m| m.len()).unwrap_or(0),
-                            );
+                            job.output_size =
+                                Some(std::fs::metadata(&input).map(|m| m.len()).unwrap_or(0));
                         }
                         Err(e) => {
                             job.warning = Some(format!("输出未替换源文件：{e}"));
@@ -404,9 +395,12 @@ impl BinaryLocator {
         if let Ok(exe) = std::env::current_exe() {
             if let Some(dir) = exe.parent() {
                 for cand in [
-                    dir.join("bins").join(bin_name(name)),                    // 开发态/Windows 安装态
-                    dir.join(bin_name(name)),                                 // 同目录
-                    Path::new("/usr/lib").join(PRODUCT_DIR).join("bins").join(bin_name(name)), // Linux deb
+                    dir.join("bins").join(bin_name(name)), // 开发态/Windows 安装态
+                    dir.join(bin_name(name)),              // 同目录
+                    Path::new("/usr/lib")
+                        .join(PRODUCT_DIR)
+                        .join("bins")
+                        .join(bin_name(name)), // Linux deb
                 ] {
                     if cand.is_file() {
                         return Some(cand);
@@ -430,10 +424,7 @@ impl BinaryLocator {
         }
         // macOS Homebrew：GUI 应用从 Finder 启动时 PATH 不含 brew 目录，
         // 需按固定路径兜底探测（Apple Silicon /opt/homebrew，Intel /usr/local）
-        for dir in [
-            Path::new("/opt/homebrew/bin"),
-            Path::new("/usr/local/bin"),
-        ] {
+        for dir in [Path::new("/opt/homebrew/bin"), Path::new("/usr/local/bin")] {
             let cand = dir.join(bin_name(name));
             if cand.is_file() {
                 return Some(cand);
@@ -496,10 +487,7 @@ impl BinaryLocator {
     pub fn gpu_available(&self, kind: GpuKind) -> bool {
         // 前置：对应编码器必须存在于 ffmpeg 构建
         let enc = self.encoders().unwrap_or_default();
-        let builtin = kind
-            .encoder_names()
-            .iter()
-            .any(|n| enc.contains(n));
+        let builtin = kind.encoder_names().iter().any(|n| enc.contains(n));
         if !builtin {
             return false;
         }
@@ -601,7 +589,22 @@ mod tests {
         };
         let cancel = std::sync::atomic::AtomicBool::new(false);
         let out = run_compression(
-            job, &preset, Some(out_dir), None, None, None, None, None, false, None, None, None, false, false, &cancel, |_| {},
+            job,
+            &preset,
+            Some(out_dir),
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            None,
+            None,
+            false,
+            false,
+            &cancel,
+            |_| {},
         )
         .await;
         assert_eq!(out.status, "done", "err={:?}", out.error);
@@ -610,7 +613,10 @@ mod tests {
             "低码率源膨胀时必须触发变大 warning，实际 warning={:?}",
             out.warning
         );
-        println!("[实测] 变大 warning 触发: {}", out.warning.as_deref().unwrap());
+        println!(
+            "[实测] 变大 warning 触发: {}",
+            out.warning.as_deref().unwrap()
+        );
     }
 
     /// 集成实测：复现「自由 q80 对已压缩 JPEG 膨胀」——photo_river.jpg（360KB，已压缩）
@@ -659,7 +665,22 @@ mod tests {
         };
         let cancel = std::sync::atomic::AtomicBool::new(false);
         let out = run_compression(
-            job, &preset, Some(out_dir), None, None, None, None, None, false, None, None, None, false, false, &cancel, |_| {},
+            job,
+            &preset,
+            Some(out_dir),
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            None,
+            None,
+            false,
+            false,
+            &cancel,
+            |_| {},
         )
         .await;
         assert_eq!(out.status, "done", "err={:?}", out.error);
@@ -721,7 +742,22 @@ mod tests {
         let cancel = std::sync::atomic::AtomicBool::new(false);
         // 输出目录 None → 与源同目录 → 同目录原子 rename
         let out = run_compression(
-            job, &preset, None, None, None, None, None, None, false, None, None, None, false, true, &cancel, |_| {},
+            job,
+            &preset,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            None,
+            None,
+            false,
+            true,
+            &cancel,
+            |_| {},
         )
         .await;
         assert_eq!(out.status, "done", "err={:?}", out.error);

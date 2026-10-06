@@ -38,11 +38,7 @@ pub async fn image_to_pdf(
         ));
     on_progress(25);
     let has_alpha = probe_has_alpha(&locator, input).await;
-    let mut args: Vec<String> = vec![
-        "-y".into(),
-        "-i".into(),
-        input_s.into(),
-    ];
+    let mut args: Vec<String> = vec!["-y".into(), "-i".into(), input_s.into()];
     if has_alpha {
         args.push("-filter_complex".into());
         args.push(format!(
@@ -175,7 +171,7 @@ fn build_pdf_multi(pages: &[(&[u8], u32, u32)]) -> Vec<u8> {
     // 每页：page 对象、image xobject、content stream
     for (i, (jpeg, w_px, h_px)) in pages.iter().enumerate() {
         let base = 3 + i * 3; // 3: page, 4: image, 5: content
-        // page 对象
+                              // page 对象
         offs.push(buf.len());
         let page = format!(
             "{} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {A4_W:.0} {A4_H:.0}] \
@@ -359,16 +355,12 @@ mod tests {
     use super::*;
 
     fn verify_dir() -> PathBuf {
-        Path::new(
-            "/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/verify",
-        )
-        .to_path_buf()
+        Path::new("/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/verify")
+            .to_path_buf()
     }
     fn corpus(name: &str) -> PathBuf {
-        Path::new(
-            "/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/corpus",
-        )
-        .join(name)
+        Path::new("/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/corpus")
+            .join(name)
     }
 
     #[test]

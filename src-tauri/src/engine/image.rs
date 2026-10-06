@@ -53,7 +53,9 @@ pub async fn compress(
         let out = best.ok_or_else(|| {
             format!(
                 "最低质量仍超过 {max_kb}KB 限制（当前大小 {}KB）",
-                std::fs::metadata(output).map(|m| m.len() / 1024).unwrap_or(0)
+                std::fs::metadata(output)
+                    .map(|m| m.len() / 1024)
+                    .unwrap_or(0)
             )
         })?;
         on_progress(100);
@@ -168,7 +170,12 @@ async fn pngquant_run(
             .find("ffmpeg")
             .ok_or_else(|| "未找到 ffmpeg 二进制".to_string())?;
         let st = Command::new(&ffmpeg)
-            .args(["-y", "-i", input.to_str().ok_or("路径非法")?, tmp.to_str().ok_or("路径非法")?])
+            .args([
+                "-y",
+                "-i",
+                input.to_str().ok_or("路径非法")?,
+                tmp.to_str().ok_or("路径非法")?,
+            ])
             .stderr(Stdio::null())
             .status()
             .await
@@ -285,16 +292,12 @@ mod tests {
     use std::path::Path;
 
     fn verify_dir() -> PathBuf {
-        Path::new(
-            "/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/verify",
-        )
-        .to_path_buf()
+        Path::new("/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/verify")
+            .to_path_buf()
     }
     fn corpus(name: &str) -> PathBuf {
-        Path::new(
-            "/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/corpus",
-        )
-        .join(name)
+        Path::new("/home/user/Doubao/chats/38441761271276290/tinypress/.build/benchmark/corpus")
+            .join(name)
     }
 
     /// 集成实测：pngquant 质量透传——同源 q80 输出应显著大于 q60

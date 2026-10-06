@@ -23,7 +23,7 @@ import {
   startWatch,
   stopWatch,
 } from "./api";
-import { pickOutputDir } from "./api";
+import { pickOutputDir, pickInputFiles } from "./api";
 import type {
   EditOptions,
   EngineInfo,
@@ -32,6 +32,8 @@ import type {
   QueueItem,
 } from "./types";
 import { setLang, t, useLang, type LangPref } from "./i18n";
+import { notify } from "./notify";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 let idSeq = 0;
 
@@ -97,14 +99,54 @@ export default function App() {
   const [watchPreset, setWatchPreset] = useState("");
   const [watchRunning, setWatchRunning] = useState(false);
   const [appVersion, setAppVersion] = useState("");
+  // 自动更新检测（静默）：新版本横幅
+  const [updateInfo, setUpdateInfo] = useState<{ latest: string; url: string } | null>(null);
+  const [updateDismissed, setUpdateDismissed] = useState(false);
+  // 关于对话框
+  const [aboutOpen, setAboutOpen] = useState(false);
   const queueRef = useRef<QueueItem[]>([]);
   const settingsLoaded = useRef(false);
 
   useLang();
 
+  // 任务进行中/待处理时关闭窗口需确认（防止误关丢失压缩任务）
+  useEffect(() => {
+    try {
+      const un = getCurrentWindow().onCloseRequested(async (e) => {
+        const busy = queueRef.current.some(
+          (x) => x.status === "running" || x.status === "queued"
+        );
+        if (!busy) return; // 无任务：直接放行
+        e.preventDefault();
+        if (window.confirm(t("app.confirmExit"))) {
+          await getCurrentWindow().destroy();
+        }
+      });
+      return () => {
+        un.then((fn) => fn());
+      };
+    } catch {
+      // 非 Tauri 运行环境（如浏览器预览）：无关闭拦截能力，静默跳过
+      return () => {};
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     queueRef.current = queue;
   }, [queue]);
+
+  /** 简单语义化版本比较：latest > current 返回 true */
+  function isNewer(latest: string, current: string): boolean {
+    const pa = latest.replace(/^v/i, "").split(".").map(Number);
+    const pb = current.replace(/^v/i, "").split(".").map(Number);
+    for (let i = 0; i < 3; i++) {
+      const a = pa[i] ?? 0;
+      const b = pb[i] ?? 0;
+      if (a !== b) return a > b;
+    }
+    return false;
+  }
 
   // 初始加载：预设 + 引擎信息 + 监控状态 + 应用设置
   useEffect(() => {
@@ -121,6 +163,27 @@ export default function App() {
       .then((s) => setWatchRunning(s.running))
       .catch(() => setWatchRunning(false));
     getAppVersion().then(setAppVersion).catch(() => setAppVersion(""));
+    // 静默检查 GitHub 最新 Release：有新版本且比当前新 → 显示可关闭横幅（失败静默）
+    (async () => {
+      try {
+        const r = await fetch(
+          "https://api.github.com/repos/tinypress-dgl/tinypress/releases/latest",
+          { headers: { Accept: "application/vnd.github+json" } }
+        );
+        if (!r.ok) return;
+        const j = (await r.json()) as { tag_name?: string };
+        const tag = j.tag_name ?? "";
+        const cur = await getAppVersion().catch(() => "");
+        if (tag && cur && isNewer(tag, cur)) {
+          setUpdateInfo({
+            latest: tag.replace(/^v/i, ""),
+            url: `https://github.com/tinypress-dgl/tinypress/releases/tag/${tag}`,
+          });
+        }
+      } catch {
+        // 无网络/被墙：静默，不打扰用户
+      }
+    })();
     // 恢复上次会话的任务队列（未完成任务为 queued，可重新开始）
     getQueue()
       .then((items) =>
@@ -198,8 +261,45 @@ export default function App() {
       setQueue((q) =>
         q.map((it) => (it.id === done.id ? { ...done, status: done.status } : it))
       );
+      // 系统通知：单任务完成/失败 + 全部结束汇总（应用在后台也能收到提醒）
+      const name = done.inputPath.split(/[\\/]/).pop() ?? done.inputPath;
+      if (done.status === "done") {
+        void notify(t("app.notifyDone"), name);
+        const next = queueRef.current.map((it) =>
+          it.id === done.id ? { ...it, status: done.status } : it
+        );
+        if (next.length > 0 && next.every((x) => x.status === "done" || x.status === "error")) {
+          const ok = next.filter((x) => x.status === "done").length;
+          const fail = next.length - ok;
+          void notify(t("app.notifyAllDone", { ok, fail }));
+        }
+      } else if (done.status === "error") {
+        void notify(t("app.notifyFail"), name);
+      }
     }).then((fn) => offs.push(fn));
     return () => offs.forEach((fn) => fn());
+  }, []);
+
+  // 快捷键：Ctrl/Cmd+O 选择文件、Ctrl/Cmd+Enter 开始压缩
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod) return;
+      if (e.key.toLowerCase() === "o") {
+        e.preventDefault();
+        pickInputFiles()
+          .then((files) => {
+            if (files && files.length > 0) void handleFiles(files);
+          })
+          .catch(() => {});
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        void handleCompressClick();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleFiles = async (paths: string[]) => {
@@ -319,11 +419,45 @@ export default function App() {
     setQueue((q) => q.map((it) => (it.id === id ? { ...it, edit } : it)));
   };
 
+  /** 清除本次会话中已结束（完成/失败/取消）的任务 */
+  const handleClearFinished = () => {
+    setQueue((q) =>
+      q.filter((it) => it.status === "queued" || it.status === "running")
+    );
+  };
+
+  /** queued 任务顺序调整（上移/下移一格） */
+  const handleMove = (id: string, dir: -1 | 1) => {
+    setQueue((q) => {
+      const idx = q.findIndex((it) => it.id === id);
+      const target = idx + dir;
+      if (idx < 0 || target < 0 || target >= q.length) return q;
+      const next = [...q];
+      const a = next[idx];
+      next[idx] = next[target];
+      next[target] = a;
+      return next;
+    });
+  };
+
   const totalPending = useMemo(
     () =>
       queue.filter((x) => x.status === "queued" || x.status === "running").length,
     [queue]
   );
+
+  /** 队列总体进度统计（商用：用户随时看清整体进度） */
+  const queueStats = useMemo(() => {
+    const s = { total: queue.length, queued: 0, running: 0, done: 0, error: 0 };
+    for (const it of queue) {
+      if (it.status in s) (s as Record<string, number>)[it.status]++;
+    }
+    return s;
+  }, [queue]);
+  const overallPercent =
+    queueStats.total > 0
+      ? Math.round((queueStats.done / queueStats.total) * 100)
+      : 0;
 
   const handleStartWatch = async () => {
     if (!watchDir.trim() || !watchPreset) return;
@@ -354,6 +488,12 @@ export default function App() {
     setLangPref(v);
     setLang(v);
   };
+
+  // langPref 状态与 i18n 全局同步（覆盖初始值/设置加载两种入口）
+  useEffect(() => {
+    setLang(langPref);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [langPref]);
 
   return (
     <div className="flex h-full bg-slate-50 text-slate-800">
@@ -432,15 +572,40 @@ export default function App() {
             {appVersion && (
               <button
                 type="button"
-                onClick={handleCheckUpdate}
+                onClick={() => setAboutOpen(true)}
                 className="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-500 hover:bg-slate-50"
-                title={t("app.checkUpdate")}
+                title={t("about.title")}
               >
                 v{appVersion}
               </button>
             )}
           </div>
         </header>
+
+        {/* 自动更新横幅（发现新版本时可关闭） */}
+        {updateInfo && !updateDismissed && (
+          <div className="flex flex-wrap items-center gap-3 border-b border-blue-100 bg-blue-50 px-4 py-2">
+            <span className="min-w-0 flex-1 text-xs text-blue-800">
+              {t("app.updateBanner", { v: updateInfo.latest })}
+            </span>
+            <a
+              href={updateInfo.url}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-md bg-blue-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-blue-700"
+            >
+              {t("app.updateBannerBtn")}
+            </a>
+            <button
+              type="button"
+              onClick={() => setUpdateDismissed(true)}
+              className="rounded-md px-1.5 py-0.5 text-xs text-blue-400 hover:bg-blue-100"
+              aria-label={t("common.close")}
+            >
+              ×
+            </button>
+          </div>
+        )}
 
         {/* 预设选择（v0.6.1 移到中间栏顶部）+ 工作区滚动 */}
         <div className="min-h-0 flex-1 overflow-auto">
@@ -504,6 +669,30 @@ export default function App() {
             )}
 
             {/* ③ 任务队列区（并入中间栏，无右侧独立任务区） */}
+            {visibleQueue.length > 0 && (
+              <div className="rounded-xl border border-slate-200 bg-white px-4 py-2.5">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs text-slate-500">
+                    {t("app.stats", {
+                      n: queueStats.total,
+                      queued: queueStats.queued,
+                      running: queueStats.running,
+                      done: queueStats.done,
+                      error: queueStats.error,
+                    })}
+                  </span>
+                  <span className="text-xs font-medium text-slate-700">
+                    {overallPercent}%
+                  </span>
+                </div>
+                <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className="h-full rounded-full bg-blue-500 transition-all duration-300"
+                    style={{ width: `${overallPercent}%` }}
+                  />
+                </div>
+              </div>
+            )}
             <QueueList
               items={visibleQueue}
               selectedId={selectedItem?.id}
@@ -511,6 +700,8 @@ export default function App() {
               onEditChange={handleEditChange}
               onCancel={handleCancel}
               onRetry={handleRetry}
+              onClearFinished={handleClearFinished}
+              onMove={handleMove}
             />
 
             {/* ④ 批处理工具箱：图片页只显示图片块，视频页只显示视频块+PDF瘦身 */}
@@ -637,6 +828,82 @@ export default function App() {
       </main>
 
       <CompareView item={selectedItem} onClose={() => setSelectedItem(null)} />
+
+      {/* 关于对话框 */}
+      {aboutOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40"
+          onClick={() => setAboutOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="mb-4 text-lg font-bold text-slate-900">
+              {t("about.title")}
+            </h2>
+            <dl className="space-y-3 text-sm">
+              <div className="flex justify-between gap-4">
+                <dt className="shrink-0 text-slate-500">{t("about.version")}</dt>
+                <dd className="font-medium text-slate-800">
+                  v{appVersion || "—"}
+                  {updateInfo && !updateDismissed && (
+                    <span className="ml-2 rounded bg-blue-100 px-1.5 py-0.5 text-[11px] text-blue-700">
+                      v{updateInfo.latest}
+                    </span>
+                  )}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="shrink-0 text-slate-500">{t("about.engine")}</dt>
+                <dd className="text-right font-medium text-slate-800">
+                  {engine
+                    ? engine.ffmpegOk
+                      ? `FFmpeg ${(engine.ffmpegVersion ?? "").split(" ")[1] ?? ""}`
+                      : t("app.ffmpegMissing")
+                    : t("app.engineChecking")}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="shrink-0 text-slate-500">{t("about.github")}</dt>
+                <dd>
+                  <a
+                    href="https://github.com/tinypress-dgl/tinypress"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-medium text-blue-600 hover:underline"
+                  >
+                    tinypress-dgl/tinypress
+                  </a>
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="shrink-0 text-slate-500">{t("about.license")}</dt>
+                <dd className="font-medium text-slate-800">MIT</dd>
+              </div>
+            </dl>
+            <p className="mt-4 rounded-lg bg-green-50 px-3 py-2 text-xs text-green-700">
+              {t("about.local")}
+            </p>
+            <div className="mt-5 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={handleCheckUpdate}
+                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+              >
+                {t("app.checkUpdate")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setAboutOpen(false)}
+                className="rounded-lg bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                {t("about.close")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
