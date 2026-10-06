@@ -13,7 +13,9 @@
  */
 import {
   copyFileSync,
+  cpSync,
   createWriteStream,
+  existsSync,
   mkdirSync,
   readdirSync,
   rmSync,
@@ -113,6 +115,77 @@ function run(cmd, args) {
   if (r.status !== 0) throw new Error(`${cmd} 退出码 ${r.status}`);
 }
 
+function runOut(cmd, args) {
+  const r = spawnSync(cmd, args, { encoding: "utf8" });
+  if (r.status !== 0) throw new Error(`${cmd} 退出码 ${r.status}`);
+  return r.stdout || "";
+}
+
+/**
+ * 确保 tesseract + tessdata（eng/chi_sim）进入 bins/。
+ * - win32：choco 静默安装 → 拷贝 tesseract.exe + 同目录 DLL + tessdata；chi_sim 由 tessdata_fast 兜底下载
+ * - linux：apt 安装 tesseract-ocr(+chi-sim) → 拷贝 exe + 系统 tessdata
+ * - darwin：由 macos-bundle-engines.sh 处理（brew tesseract-lang），此处仅兜底校验
+ */
+function ensureTesseract() {
+  const tessdir = path.join(BINS_DIR, "tessdata");
+  mkdirSync(tessdir, { recursive: true });
+  const exe = path.join(BINS_DIR, binName("tesseract"));
+  if (existsSync(exe)) {
+    log("tesseract 已存在，跳过安装");
+  } else if (PLATFORM === "win32") {
+    log("安装 tesseract (choco) …");
+    run("choco", ["install", "tesseract", "-y", "--no-progress"]);
+    const candidates = [
+      "C:\\Program Files\\Tesseract-OCR\\tesseract.exe",
+      "C:\\Program Files (x86)\\Tesseract-OCR\\tesseract.exe",
+    ];
+    let srcExe = candidates.find((p) => existsSync(p));
+    if (!srcExe) {
+      const w = runOut("where", ["tesseract"]);
+      srcExe = w.trim().split(/\r?\n/)[0] || null;
+    }
+    if (!srcExe) throw new Error("tesseract 安装后未找到可执行文件");
+    copyFileSync(srcExe, exe);
+    const instDir = path.dirname(srcExe);
+    // tesseract 5 依赖同目录 DLL（libtesseract 等）→ 一并拷贝
+    for (const e of readdirSync(instDir)) {
+      if (e.endsWith(".dll") || e.endsWith(".traineddata")) {
+        try {
+          copyFileSync(path.join(instDir, e), path.join(BINS_DIR, e));
+        } catch { /* 忽略单个失败 */ }
+      }
+    }
+    if (existsSync(path.join(instDir, "tessdata"))) {
+      cpSync(path.join(instDir, "tessdata"), tessdir, { recursive: true });
+    }
+  } else if (PLATFORM === "linux") {
+    log("安装 tesseract (apt) …");
+    run("sudo", ["apt-get", "update", "-qq"]);
+    run("sudo", ["apt-get", "install", "-y", "-qq", "tesseract-ocr", "tesseract-ocr-chi-sim"]);
+    copyFileSync("/usr/bin/tesseract", exe);
+    // 系统 tessdata 目录版本不定：/usr/share/tesseract-ocr/{4,5}/tessdata
+    const dirs = ["/usr/share/tesseract-ocr/5/tessdata", "/usr/share/tesseract-ocr/4/tessdata"];
+    const src = dirs.find((d) => existsSync(d));
+    if (src) cpSync(src, tessdir, { recursive: true });
+  } else {
+    // darwin：bundle 脚本已拷贝；这里仅校验（CI macOS 步骤顺序在 fetch 之后）
+    log("darwin 平台 tesseract 由 Bundle engine binaries (macOS) 步骤处理");
+  }
+  // 兜底：保证 eng / chi_sim traineddata（tessdata_fast 精简版 ~4MB/份）
+  for (const lang of ["eng", "chi_sim"]) {
+    const target = path.join(tessdir, `${lang}.traineddata`);
+    if (!existsSync(target)) {
+      log(`下载 tessdata_fast/${lang}.traineddata …`);
+      const url = `https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/${lang}.traineddata`;
+      const r = spawnSync("curl", ["-L", "-sS", "-o", target, url], { stdio: "inherit" });
+      if (r.status !== 0) throw new Error(`下载 ${lang}.traineddata 失败`);
+    }
+  }
+  if (!existsSync(exe)) throw new Error("tesseract 缺失（OCR 功能不可用）");
+  log(`tesseract 就绪: ${exe}`);
+}
+
 function extract(archive, outDir) {
   mkdirSync(outDir, { recursive: true });
   const isWin = process.platform === "win32";
@@ -156,6 +229,9 @@ async function main() {
   log(`平台: ${PLATFORM} · 目标: ${targets.join(", ")}`);
   mkdirSync(BINS_DIR, { recursive: true });
   mkdirSync(TMP_DIR, { recursive: true });
+
+  ensureTesseract();
+  log("压缩引擎 + tesseract 全部就绪");
 
   let ok = 0;
   let fail = 0;
