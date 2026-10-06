@@ -22,8 +22,9 @@ jobs:
             bundle: nsis
           # macOS 构建 Universal 双架构（Intel x86_64 + Apple Silicon arm64），
           # 一个 dmg 同时支持两种 Mac
-          # macos-13 = Intel runner：引擎二进制 x86_64，Intel 原生 + Apple Silicon(Rosetta) 通用
-          - os: macos-13
+          # macos-latest (arm64)：evermeet ffmpeg/ffprobe 为 x86_64 跨架构通用；
+          # brew 其余引擎为 arm64（M 系原生），Intel 用户缺失时引擎自动降级
+          - os: macos-latest
             bundle: dmg
             rust_targets: aarch64-apple-darwin,x86_64-apple-darwin
             tauri_target: universal-apple-darwin
