@@ -110,14 +110,14 @@ const d: Dict = {
   "app.tabAll": { zh: "全部任务", en: "All tasks" },
 
   // ===== 输出路径 =====
-  "out.title": { zh: "处理后文件保存到", en: "Save output to" },
-  "out.sourceDir": { zh: "源文件所在目录", en: "Source file folder" },
+  "out.title": { zh: "保存", en: "Save" },
+  "out.sourceDir": { zh: "源文件路径", en: "Source file path" },
   "out.customDir": { zh: "自定义目录", en: "Custom folder" },
   "out.pick": { zh: "选择目录…", en: "Pick folder…" },
   "out.pathExample": { zh: "如 D:\compressed", en: "e.g. D:\compressed" },
   "out.pathExampleWatch": { zh: "如 D:\watch", en: "e.g. D:\watch" },
   "out.current": { zh: "当前输出目录：{p}", en: "Output folder: {p}" },
-  "out.sourceHint": { zh: "输出文件与源文件放在同一目录（原名后缀标记）", en: "Output files are saved next to the source files (with suffix)" },
+  "out.sourceHint": { zh: "（原名后缀标记）", en: "(original name with suffix)" },
 
   // ===== 设置面板 =====
   "settings.title": { zh: "⚙ 输出与自动压缩设置", en: "⚙ Output & Auto-compress Settings" },
@@ -259,8 +259,8 @@ const d: Dict = {
 
   // ===== 拖放/添加 =====
   "drop.hint": { zh: "拖入图片或视频文件（支持批量）", en: "Drop images or videos (batch supported)" },
-  "drop.hint2": { zh: "或拖入文件夹 · 也可用下方「添加文件」按钮或粘贴路径", en: "or drop a folder · or use “Add files” below / paste paths" },
-  "add.title": { zh: "添加文件", en: "Add files" },
+  "drop.hint2": { zh: "或拖入文件夹 · 也可用下方「打开文件」按钮或粘贴路径", en: "or drop a folder · or use “Open files” below / paste paths" },
+  "add.title": { zh: "打开文件", en: "Open files" },
   "add.pickFiles": { zh: "选择文件…", en: "Pick files…" },
   "add.pickFolder": { zh: "选择文件夹…", en: "Pick folder…" },
   "add.placeholder": { zh: "粘贴文件/文件夹路径，多个用换行、逗号或分号分隔", en: "Paste file/folder paths, separated by newline, comma or semicolon" },

@@ -1,6 +1,6 @@
 [package]
 name = "tinypress"
-version = "0.6.4"
+version = "0.6.5"
 description = "TinyPress 速压 - 本地优先的图片+视频压缩工具"
 authors = ["TinyPress"]
 edition = "2021"
@@ -21,11 +21,19 @@ portpicker = "0.1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["full"] }
-# Linux 用纯 GTK3 对话框（避免 xdg-portal → soup3 依赖）；Windows/macOS 原生不受影响
-rfd = { version = "0.15", default-features = false, features = ["gtk3"] }
+# 文件对话框：按平台完全分离——Linux 用 GTK3（避免 xdg-portal → soup3 依赖）；
+# macOS(NSOpenPanel) / Windows(Win32) 后端由 rfd 编译期自动启用，无需 feature
 base64 = "0.22"
 # v0.5.0：重命名模板 {date}/{time} 变量
 chrono = { version = "0.4", features = ["clock"] }
 tauri-plugin-notification = "2"
 tauri-plugin-single-instance = "2"
 tauri-plugin-window-state = "2"
+
+
+[target.'cfg(target_os = "linux")'.dependencies]
+rfd = { version = "0.15", default-features = false, features = ["gtk3"] }
+[target.'cfg(target_os = "macos")'.dependencies]
+rfd = { version = "0.15", default-features = false }
+[target.'cfg(target_os = "windows")'.dependencies]
+rfd = { version = "0.15", default-features = false }
