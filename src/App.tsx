@@ -23,7 +23,7 @@ import {
   startWatch,
   stopWatch,
 } from "./api";
-import { pickOutputDir, pickInputFiles } from "./api";
+import { pickOutputDir, pickInputFiles, onMenuOpenFiles } from "./api";
 import type {
   EditOptions,
   EngineInfo,
@@ -66,6 +66,22 @@ function taskKind(presets: Preset[], presetId: string): ActiveTab {
   return kind === "image" ? "image" : "video"; // video + pdf + audio
 }
 
+/** 切换顶部 Tab：同时切换 Tab 状态；若当前预设类型与该 Tab 不符，自动切到该类型第一个预设 */
+function switchTab(
+  tab: ActiveTab,
+  setActiveTab: (t: ActiveTab) => void,
+  presets: Preset[],
+  selectedPreset: string,
+  setSelectedPreset: (id: string) => void
+) {
+  setActiveTab(tab);
+  const cur = presets.find((p) => p.id === selectedPreset);
+  if (cur && taskKind(presets, cur.id) !== tab) {
+    const first = presets.find((p) => taskKind(presets, p.id) === tab);
+    if (first) setSelectedPreset(first.id);
+  }
+}
+
 export default function App() {
   const [presets, setPresets] = useState<Preset[]>([]);
   const [selectedPreset, setSelectedPreset] = useState("");
@@ -78,6 +94,8 @@ export default function App() {
   const [renameTemplate, setRenameTemplate] = useState("");
   // v0.6.0 分页
   const [activeTab, setActiveTab] = useState<ActiveTab>("image");
+  const handleSwitchTab = (tab: ActiveTab) =>
+    switchTab(tab, setActiveTab, presets, selectedPreset, setSelectedPreset);
   // v0.6.0 界面语言
   const [langPref, setLangPref] = useState<LangPref>("system");
   // v0.3.0 批处理状态（面板开关；作用于队列中全部同类型任务）
@@ -104,6 +122,8 @@ export default function App() {
   const [updateDismissed, setUpdateDismissed] = useState(false);
   // 关于对话框
   const [aboutOpen, setAboutOpen] = useState(false);
+  // 任务进行中关闭确认浮层（macOS WKWebView 不支持 window.confirm，必须用应用内 UI）
+  const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
   const queueRef = useRef<QueueItem[]>([]);
   const settingsLoaded = useRef(false);
 
@@ -112,15 +132,13 @@ export default function App() {
   // 任务进行中/待处理时关闭窗口需确认（防止误关丢失压缩任务）
   useEffect(() => {
     try {
-      const un = getCurrentWindow().onCloseRequested(async (e) => {
+      const un = getCurrentWindow().onCloseRequested((e) => {
         const busy = queueRef.current.some(
           (x) => x.status === "running" || x.status === "queued"
         );
         if (!busy) return; // 无任务：直接放行
         e.preventDefault();
-        if (window.confirm(t("app.confirmExit"))) {
-          await getCurrentWindow().destroy();
-        }
+        setExitConfirmOpen(true); // 应用内确认浮层（不用 window.confirm）
       });
       return () => {
         un.then((fn) => fn());
@@ -131,6 +149,18 @@ export default function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 确认退出浮层：确认 → 销毁窗口；取消 → 关闭浮层继续
+  const handleExitConfirm = async (yes: boolean) => {
+    setExitConfirmOpen(false);
+    if (yes) {
+      try {
+        await getCurrentWindow().destroy();
+      } catch {
+        /* ignore */
+      }
+    }
+  };
 
   useEffect(() => {
     queueRef.current = queue;
@@ -317,6 +347,24 @@ export default function App() {
     // 先入队（等待用户可编辑/确认），点「开始压缩」统一提交
     setQueue((q) => [...items, ...q]);
   };
+
+  // 系统菜单「打开文件…」（macOS 菜单栏 / Cmd+O）→ 打开文件选择并入队
+  useEffect(() => {
+    let un: (() => void) | undefined;
+    onMenuOpenFiles(async () => {
+      const files = await pickInputFiles();
+      if (files && files.length > 0) handleFiles(files);
+    })
+      .then((fn) => {
+        un = fn;
+      })
+      .catch(() => {
+        /* 非 Tauri 环境静默 */
+      });
+    return () => {
+      un?.();
+    };
+  }, [handleFiles]);
 
   /** 图片编辑参数是否全空（全空时不下发，避免无意义复制） */
   const imageEditEmpty = useMemo(() => {
@@ -538,7 +586,7 @@ export default function App() {
             <nav className="flex items-center gap-1 rounded-lg bg-slate-100 p-1">
               <button
                 type="button"
-                onClick={() => setActiveTab("image")}
+                onClick={() => handleSwitchTab("image")}
                 className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${
                   activeTab === "image"
                     ? "bg-blue-600 text-white"
@@ -549,7 +597,7 @@ export default function App() {
               </button>
               <button
                 type="button"
-                onClick={() => setActiveTab("video")}
+                onClick={() => handleSwitchTab("video")}
                 className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${
                   activeTab === "video"
                     ? "bg-blue-600 text-white"
@@ -899,6 +947,41 @@ export default function App() {
                 className="rounded-lg bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
               >
                 {t("about.close")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {exitConfirmOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40"
+          onClick={() => handleExitConfirm(false)}
+        >
+          <div
+            className="w-[400px] rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-slate-800">
+              {t("app.confirmExitTitle")}
+            </h3>
+            <p className="mt-2 text-sm leading-relaxed text-slate-600">
+              {t("app.confirmExit")}
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => handleExitConfirm(false)}
+                className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleExitConfirm(true)}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+              >
+                {t("common.confirm")}
               </button>
             </div>
           </div>

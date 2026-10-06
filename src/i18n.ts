@@ -59,6 +59,7 @@ const d: Dict = {
   "common.close": { zh: "关闭", en: "Close" },
   "common.choose": { zh: "选择…", en: "Choose…" },
   "common.cancel": { zh: "取消", en: "Cancel" },
+  "common.confirm": { zh: "确认退出", en: "Quit" },
   "common.done": { zh: "完成", en: "Done" },
   "common.edit": { zh: "编辑", en: "Edit" },
   "common.delete": { zh: "删除", en: "Delete" },
@@ -99,6 +100,7 @@ const d: Dict = {
   "about.close": { zh: "关闭", en: "Close" },
   "app.stats": { zh: "共 {n} 项 · 待处理 {queued} · 进行中 {running} · 完成 {done} · 失败 {error}", en: "{n} total · {queued} queued · {running} running · {done} done · {error} failed" },
   "app.confirmExit": { zh: "还有任务正在进行或待处理，确定要退出吗？未完成的压缩将丢失。", en: "Tasks are still running or queued. Quit now? Unfinished compression will be lost." },
+  "app.confirmExitTitle": { zh: "退出 TinyPress", en: "Quit TinyPress" },
   "app.startCompress": {
     zh: "开始压缩（{n}）—— 可先点队列项的「编辑」调整截取/旋转/去黑边",
     en: "Start compression ({n}) — click an item to edit trim/rotate/crop first",

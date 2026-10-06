@@ -171,6 +171,11 @@ export async function onNativeFilesDropped(
   return listen<string[]>("native-files-dropped", (e) => cb(e.payload));
 }
 
+/** 系统菜单「打开文件…」被触发（macOS 菜单栏 / 快捷键） */
+export async function onMenuOpenFiles(cb: () => void): Promise<() => void> {
+  return listen("menu-open-files", () => cb());
+}
+
 /** 原生多选文件对话框（图片/视频）；用户取消返回 null */
 export function pickInputFiles(): Promise<string[] | null> {
   return invoke<string[] | null>("pick_input_files");
