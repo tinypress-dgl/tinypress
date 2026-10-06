@@ -171,7 +171,9 @@ async function main() {
         if (def.altHint) log(`  ${def.altHint}`);
         continue;
       }
-      const archive = path.join(TMP_DIR, `${name}-${path.basename(url)}`);
+      // URL 带 query（如 evermeet ?arch=amd64）时 path.basename 会含 query，导致扩展名判断失败 → 剥离 query
+      const urlBase = url.split(/[?#]/)[0];
+      const archive = path.join(TMP_DIR, `${name}-${path.basename(urlBase)}`);
 
       if (def.extract === "none") {
         await download(url, path.join(BINS_DIR, binName(name)));

@@ -82,6 +82,7 @@ jobs:
 
       # 引擎二进制必须存在：ffmpeg 是核心引擎，缺失直接失败（避免发布空壳安装包）
       - name: Verify engine binaries
+        shell: bash
         run: |
           ls src-tauri/bins/
           if [ -z "$(ls src-tauri/bins/ffmpeg* 2>/dev/null | head -1)" ]; then
