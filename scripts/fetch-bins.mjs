@@ -30,9 +30,12 @@ const PLATFORM = process.platform; // win32 | darwin | linux
 
 const ENGINES = {
   ffmpeg: {
+    // win32: gyan.dev release-essentials（稳定 URL，含 ffmpeg/ffprobe）
+    // darwin: evermeet.cx 静态构建（x86_64，Intel + Apple Silicon(Rosetta) 通用）
+    // linux: BtbN linux64-gpl
     urls: {
-      win32:
-        "https://github.com/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-win64-gpl.zip",
+      win32: "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip",
+      darwin: "https://evermeet.cx/ffmpeg/getrelease/ffmpeg/zip?arch=amd64",
       linux:
         "https://github.com/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-linux64-gpl.tar.xz",
     },
