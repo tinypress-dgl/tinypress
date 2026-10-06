@@ -1,0 +1,84 @@
+name: build-macos-universal-dmg
+
+# 触发：手动运行 或 推送 v*.*.* 标签
+on:
+  workflow_dispatch: {}
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  macos-dmg:
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Rust (universal targets)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Install npm deps
+        run: npm ci
+
+      # ---- macOS 引擎二进制（本机 Linux 版脚本无 darwin 源，直接备齐）----
+      - name: Install engines via Homebrew
+        run: |
+          brew install jpeg-turbo pngquant webp libavif tesseract tesseract-lang
+          mkdir -p src-tauri/bins
+          BP="$(brew --prefix)"
+          # cjpeg / pngquant / cwebp / avifenc / tesseract
+          cp "$BP/opt/jpeg-turbo/bin/cjpeg" src-tauri/bins/ 2>/dev/null || true
+          cp "$(which pngquant)" src-tauri/bins/ 2>/dev/null || true
+          cp "$(which cwebp)" src-tauri/bins/ 2>/dev/null || true
+          cp "$(which avifenc)" src-tauri/bins/ 2>/dev/null || true
+          cp "$(which tesseract)" src-tauri/bins/ 2>/dev/null || true
+          # tessdata：英文 + 简体中文
+          TESSDATA="$BP/share/tessdata"
+          mkdir -p src-tauri/bins/tessdata
+          cp "$TESSDATA/eng.traineddata" src-tauri/bins/tessdata/ 2>/dev/null || true
+          cp "$TESSDATA/chi_sim.traineddata" src-tauri/bins/tessdata/ 2>/dev/null || true
+          ls -la src-tauri/bins/
+
+      - name: Download FFmpeg/FFprobe (x86_64 static, universal-compatible)
+        run: |
+          curl -fsSL -o /tmp/ffmpeg.zip "https://evermeet.cx/ffmpeg/getrelease/ffmpeg/zip?arch=amd64"
+          curl -fsSL -o /tmp/ffprobe.zip "https://evermeet.cx/ffmpeg/getrelease/ffprobe/zip?arch=amd64"
+          unzip -o /tmp/ffmpeg.zip -d src-tauri/bins/
+          unzip -o /tmp/ffprobe.zip -d src-tauri/bins/
+          chmod +x src-tauri/bins/ffmpeg src-tauri/bins/ffprobe
+          src-tauri/bins/ffmpeg -version | head -1
+
+      - name: Build universal dmg (Tauri)
+        run: npx tauri build --target universal-apple-darwin
+
+      - name: Verify artifacts
+        run: |
+          ls -la src-tauri/target/universal-apple-darwin/release/bundle/dmg/ || true
+          ls -la src-tauri/target/universal-apple-darwin/release/ || true
+
+      - name: Upload dmg to Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+          draft: false
+          prerelease: false
+
+      - name: Upload dmg as workflow artifact
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: TinyPress-universal.dmg
+          path: src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
