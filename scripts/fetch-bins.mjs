@@ -35,7 +35,8 @@ const ENGINES = {
     // linux: BtbN linux64-gpl
     urls: {
       win32: "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip",
-      darwin: "https://evermeet.cx/ffmpeg/getrelease/ffmpeg/zip?arch=amd64",
+      darwin: "https://evermeet.cx/ffmpeg/getrelease/ffmpeg/zip?arch=amd64", // basename 为 "zip"，需 archiveName
+    archiveName: { darwin: "ffmpeg-evermeet.zip" },
       linux:
         "https://github.com/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-linux64-gpl.tar.xz",
     },
@@ -173,7 +174,8 @@ async function main() {
       }
       // URL 带 query（如 evermeet ?arch=amd64）时 path.basename 会含 query，导致扩展名判断失败 → 剥离 query
       const urlBase = url.split(/[?#]/)[0];
-      const archive = path.join(TMP_DIR, `${name}-${path.basename(urlBase)}`);
+      const archiveName = def.archiveName ? def.archiveName[PLATFORM] : `${name}-${path.basename(urlBase)}`;
+      const archive = path.join(TMP_DIR, archiveName);
 
       if (def.extract === "none") {
         await download(url, path.join(BINS_DIR, binName(name)));
