@@ -23,7 +23,7 @@ import {
   startWatch,
   stopWatch,
 } from "./api";
-import { pickOutputDir, pickInputFiles, onMenuOpenFiles } from "./api";
+import { pickOutputDir, pickInputFiles, onMenuOpenFiles, setMenuLanguage } from "./api";
 import type {
   EditOptions,
   EngineInfo,
