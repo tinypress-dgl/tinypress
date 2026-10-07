@@ -540,6 +540,8 @@ export default function App() {
   // langPref 状态与 i18n 全局同步（覆盖初始值/设置加载两种入口）
   useEffect(() => {
     setLang(langPref);
+    // 系统菜单语言与界面语言同步（zh/en/system）
+    setMenuLanguage(langPref).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [langPref]);
 

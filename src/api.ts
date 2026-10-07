@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import type { LangPref } from "./i18n";
 import type {
   AppSettings,
   EditOptions,
@@ -34,6 +35,11 @@ export function getSettings(): Promise<AppSettings> {
 /** 保存应用设置（防抖后整体覆盖） */
 export function saveSettings(settings: AppSettings): Promise<void> {
   return invoke("save_settings", { settings });
+}
+
+/** 语言切换时重建系统菜单（zh→中文 / en→英文 / system→跟随系统），与界面语言即时同步 */
+export function setMenuLanguage(language: LangPref): Promise<void> {
+  return invoke("set_menu_language", { language });
 }
 
 /** 应用当前版本 */

@@ -1,7 +1,7 @@
-// 应用菜单：跟随系统语言（macOS 系统菜单栏 / Windows / Linux 窗口菜单）
-// 中文系统 → 中文菜单；英文系统 → 英文菜单
-use tauri::Emitter;
+// 应用菜单：语言与界面语言完全一致（读应用内 langPref 持久化设置）
+// langPref = "zh" → 中文菜单；"en" → 英文菜单；"system" 或缺失 → 跟随系统语言
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
+use tauri::{Emitter, Manager};
 
 /// 用系统默认浏览器打开 URL（无 opener 插件依赖）
 fn open_url(url: &str) {
@@ -33,11 +33,29 @@ fn system_is_chinese() -> bool {
         .unwrap_or(false)
 }
 
+/// 依据应用语言偏好解析菜单是否中文：zh→中文，en→英文，其余（system/缺省）→系统语言
+fn menu_is_chinese(lang: Option<&str>) -> bool {
+    match lang.map(|s| s.trim().to_ascii_lowercase()).as_deref() {
+        Some("zh") => true,
+        Some("en") => false,
+        _ => system_is_chinese(),
+    }
+}
+
+/// 从持久化 settings.json（app_config_dir）读取 language
+fn saved_language(app: &tauri::AppHandle) -> Option<String> {
+    let dir = app.path().app_config_dir().ok()?;
+    let s = std::fs::read_to_string(dir.join("settings.json")).ok()?;
+    let v: serde_json::Value = serde_json::from_str(&s).ok()?;
+    v.get("language").and_then(|x| x.as_str()).map(String::from)
+}
+
+/// 启动时设置菜单：语言来自持久化设置；菜单事件监听仅注册一次（重建菜单不重复注册）
 pub fn setup_menu(app: &tauri::App) -> tauri::Result<()> {
-    let zh = system_is_chinese();
-    let app_menu = build_app_menu(app, zh)?;
-    app.set_menu(app_menu)?;
-    // 监听菜单"打开文件"事件 → 转发前端执行原生文件对话框
+    let zh = menu_is_chinese(saved_language(app.handle()).as_deref());
+    let menu = build_app_menu(app.handle(), zh)?;
+    // set_menu 返回被替换的旧菜单（Option），忽略即可
+    let _ = app.set_menu(menu);
     app.on_menu_event(|app, event| {
         if event.id().as_ref() == "open_files" {
             let _ = app.emit("menu-open-files", ());
@@ -48,7 +66,17 @@ pub fn setup_menu(app: &tauri::App) -> tauri::Result<()> {
     Ok(())
 }
 
-fn build_app_menu(app: &tauri::App, zh: bool) -> tauri::Result<Menu<tauri::Wry>> {
+/// 前端语言切换时重建菜单：与界面语言即时同步（zh/en/system）
+#[tauri::command]
+pub fn set_menu_language(app: tauri::AppHandle, language: String) -> Result<(), String> {
+    let zh = menu_is_chinese(Some(&language));
+    let menu = build_app_menu(&app, zh).map_err(|e| e.to_string())?;
+    // set_menu 返回被替换的旧菜单（Option），忽略即可
+    let _ = app.set_menu(menu);
+    Ok(())
+}
+
+fn build_app_menu(app: &tauri::AppHandle, zh: bool) -> tauri::Result<Menu<tauri::Wry>> {
     // macOS 首个子菜单为应用菜单（标题为应用名）
     let about_text = if zh { "关于 TinyPress 速压" } else { "About TinyPress" };
     let app_sub = Submenu::with_items(

@@ -1,3 +1,4 @@
+mod app_menu;
 mod commands;
 mod engine;
 mod presets;
@@ -83,6 +84,10 @@ pub fn run() {
                     .expect("invalid localhost url");
                 WebviewUrl::External(url)
             };
+            // 系统菜单：语言与界面语言一致（读持久化 langPref；zh/en/system）
+            // 必须在创建主窗口前设置，macOS 系统菜单栏语言立即生效
+            app_menu::setup_menu(app)?;
+
             WebviewWindowBuilder::new(app, "main", url)
                 .title("TinyPress 速压")
                 .inner_size(1200.0, 800.0)
@@ -106,6 +111,7 @@ pub fn run() {
             commands::get_watch_status,
             commands::get_settings,
             commands::save_settings,
+            app_menu::set_menu_language,
             commands::get_app_version,
             commands::check_update,
             commands::pick_output_dir,
